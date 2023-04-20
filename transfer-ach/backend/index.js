@@ -99,28 +99,28 @@ app.post("/api/mfa_verify", async (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
-  db.query('SELECT * FROM User WHERE email = ?', [username], (error, results) => {
-    if (error) {
-      console.log(error);
-      res.status(500).send('Internal server error');
-    } else if (results.length === 0) {
-      res.status(401).send('Invalid login credentials');
-    } else {
-      const user = results[0];
-
-      bcrypt.compare(password, user.password, (error, result) => {
-        if (error) {
-          console.log(error);
-          res.status(500).send('Internal server error');
-        } else if (result === false) {
-          res.status(401).send('Invalid login credentials');
-        } else {
-          const token = jwt.sign({ user_id: user.user_id }, secretKey);
-          res.status(200).send({ token });
-        }
-      });
-    }
-  });
+	db.query('SELECT * FROM User WHERE email = ?', [username], (error, results) => {
+		if (error) {
+			console.log(error);
+			res.status(500).send('Internal server error');
+		} else if (results.length === 0) {
+			res.status(401).send('Invalid login credentials');
+		} else {
+			const user = results[0];
+			bcrypt.compare(password, user.password, (error, result) => {
+				if (error) {
+					console.log(error);
+					res.status(500).send('Internal server error');
+				} else if (result === false) {
+					res.status(401).send('Invalid login credentials');
+				} else {
+					const token = jwt.sign({ user_id: user.user_id }, secretKey);
+					res.status(200).send({ token });
+				}
+			});
+		}
+	});
+});
   
 // Transfer money
 app.post("api/transfer", (req, res) => {
@@ -198,7 +198,7 @@ app.post("api/transfer", (req, res) => {
 			}
 		});
 	});
-}});
+});
 
 // Get all transactions of user
 app.post("api/transactions", (req, res) => {
@@ -247,7 +247,8 @@ app.post("api/transactions", (req, res) => {
 			console.log(error);
 			res.status(500).send("Error retrieving transactions for user");
 		} 
-		else {
+		else 
+		{
 			
 			// Get users
 			query = "SELECT user_id, email FROM USER";
@@ -259,14 +260,15 @@ app.post("api/transactions", (req, res) => {
 				else {
 					res.status(200).send(results);
 				}
-			}
+			});
 		}
+	});
 });
 
 // Get balance of account
 app.post("api/balance", (req, res) => {
 	const {username} = req.body;
-	db.query("SELECT balance FROM Bank_Account WHERE user_id = (SELECT user_id FROM User WHERE email = ?)";, [username], async (error, results, fields) => {
+	db.query("SELECT balance FROM Bank_Account WHERE user_id = (SELECT user_id FROM User WHERE email = ?);", [username], async (error, results, fields) => {
 		if (error) {
 			console.log(error);
 			res.status(500).send("Error retrieving balance for user");
@@ -335,6 +337,6 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
   }
 });
 
-app.listen(3001, ()=>{
+app.listen(3001, () => {
     console.log("Server is running on port 3001");
 });

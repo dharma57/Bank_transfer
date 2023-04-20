@@ -12,30 +12,22 @@ function LoginPage() {
   const [password, setPassword] = useState('');
 
   const handleLogin = async (e) =>  {
+    e.preventDefault();
 
-    if (isPasswordLongEnough(password) && hasPasswordRequiredChars(password) && isValidEmail(email)){
-        e.preventDefault();
+    if (isPasswordLongEnough(password) && hasPasswordRequiredChars(password) && isValidEmail(email))
+    {
+        const response_db = await axios.post('http://localhost:3001/api/mfa_gen', email);
 
-        axios.post('http://localhost:3001/api/login', { email, password })
-            .then( async (response) => {
+        alert(response_db.error)
 
-            // localStorage.setItem('token', response.data.token);
+        if(response_db.status =  200 ){
 
-            const response_db = await axios.post('http://localhost:3001/api/mfa_gen', email);
-        
-            if(response_db.status =  200 ){
-    
-                navigate('/mfa');
-            }
-            else if (response_db.status = 500)
-            {
-                alert(response_db.error)
-            }
-        })
-        .catch(error => {
-            console.log(error);
-            alert('Invalid login credentials');
-        });
+            navigate('/mfa');
+        }
+        else if (response_db.status = 500)
+        {
+            alert(response_db.error)
+        }
     }
     else 
     {

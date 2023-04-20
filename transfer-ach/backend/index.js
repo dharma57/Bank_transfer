@@ -46,7 +46,7 @@ app.post("/api/mfa_gen", async (req, res) => {
 		INSERT INTO MFA_Authenitication (user_id, code, expire_time) 
 		SELECT user_id, ?, INTERVAL 5 MINUTE) 
 		FROM User WHERE email = ?;`;
-
+	console.log("Trying")
     db.query(sqlInsert, [code,email], (error, result) => {
 		if (error) {
 			res.status(500).json({ error: 'Error executing the query' });

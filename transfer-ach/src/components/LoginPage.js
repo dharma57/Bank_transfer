@@ -16,17 +16,11 @@ function LoginPage() {
 
     if (isPasswordLongEnough(password) && hasPasswordRequiredChars(password) && isValidEmail(email))
     {
-        const response_db = await axios.post('http://localhost:3001/api/mfa_gen', email);
-
-        alert(response_db.error)
-
-        if(response_db.status =  200 ){
-
+        try {
+            const response_db = await axios.post('http://localhost:3001/api/mfa_gen', email);
             navigate('/mfa');
-        }
-        else if (response_db.status = 500)
-        {
-            alert(response_db.error)
+          } catch (error) {
+            alert("Problem occurred while logging in")
         }
     }
     else 

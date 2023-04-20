@@ -3,26 +3,14 @@ import React, { useState } from 'react';
 import InputForm from './InputForm';
 import Button from './Button';
 import Header from './Header';
-import axios from 'axios';
 
 function MFAPage() {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
-  
+
   const handleMFA = (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-    const config = {
-      headers: { Authorization: `Bearer ${token}` }
-    };
-    axios.post('http://localhost:3001/api/mfa', { code }, config)
-      .then(response => {
-        navigate('/home');
-      })
-      .catch(error => {
-        console.log(error);
-        alert('Invalid MFA code');
-      });
+    navigate('/home');
   };
 
   const handleCodeChange = (e) => {

@@ -242,7 +242,7 @@ app.post("api/transactions", (req, res) => {
 	
 	// Get transactions
 	var query = "SELECT SubT.origin_email, User.email AS destination_email, SubT.amount, SubT.transaction_date, SubT.transaction_type FROM User, (SELECT User.email AS origin_email, UT.destination_bank_account_id AS destination_bank_account_id, UT.amount AS amount, UT.transaction_date AS transaction_date, UT.transaction_type AS transaction_type From User, (SELECT origin_bank_account_id, destinatio_bank_account_id, amount, transaction_date, transaction_type FROM ACH_Transaction WHERE origin_bank_account_id =  (SELECT user_id FROM User WHERE email = ?) OR destination_bank_account_id = (SELECT user_id FROM User WHERE email = ?)) UT WHERE User.user_id = UT.origin_bank_account_id ) SubT WHERE SubT.destination_bank_account_id = User.id FOR JSON AUTO";
-	db.query(query, [username, username], async (error, results1, fields) => {
+	db.query(query, [username, username], async (error, results, fields) => {
 		if (error) {
 			console.log(error);
 			res.status(500).send("Error retrieving transactions for user");
@@ -260,8 +260,19 @@ app.post("api/transactions", (req, res) => {
 					res.status(200).send(results);
 				}
 			}
-			
-			// res.status(200).send(results)
+		}
+});
+
+// Get balance of account
+app.post("api/balance", (req, res) => {
+	const {username} = req.body;
+	db.query("SELECT balance FROM Bank_Account WHERE user_id = (SELECT user_id FROM User WHERE email = ?)";, [username], async (error, results, fields) => {
+		if (error) {
+			console.log(error);
+			res.status(500).send("Error retrieving balance for user");
+		} 
+		else {
+			res.status(200).send(results);
 		}
 });
 

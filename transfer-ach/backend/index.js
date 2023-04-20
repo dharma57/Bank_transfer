@@ -3,7 +3,12 @@ const app=express();
 const bodyParser=require("body-parser")
 const cors = require("cors");
 const mysql=require("mysql2")
+const speakeasy = require('speakeasy');
+const nodemailer = require('nodemailer');
 
+
+
+// Db connection to AWS
 const db=mysql.createPool({
     host: "ach-database.cpza8rgbmeji.us-east-2.rds.amazonaws.com",
     user: "admin",
@@ -14,8 +19,12 @@ const db=mysql.createPool({
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
 
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const secretKey = crypto.randomBytes(64).toString('hex');
+const jwt = require('jsonwebtoken');
 
 // registration end point
 app.post("/api/register", async (req, res) => {
@@ -32,31 +41,31 @@ app.post("/api/register", async (req, res) => {
 
 // Login endpoint
 app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-  
-    db.query('SELECT * FROM User WHERE email = ?', [email], async (error, results) => {
-      if (error) {
-        console.log(error);
-        res.status(500).send('Error fetching user from database');
-      } else if (results.length === 0) {
-        res.status(401).send('Incorrect email or password');
-      } else {
-        const user = results[0];
-  
-        try {
-          if (await bcrypt.compare(password, user.password)) {
-            const token = jwt.sign({ user_id: user.user_id }, 'secret_key');
-            res.json({ token });
-          } else {
-            res.status(401).send('Incorrect email or password');
-          }
-        } catch (error) {
+  const { username, password } = req.body;
+
+  db.query('SELECT * FROM User WHERE email = ?', [username], (error, results) => {
+    if (error) {
+      console.log(error);
+      res.status(500).send('Internal server error');
+    } else if (results.length === 0) {
+      res.status(401).send('Invalid login credentials');
+    } else {
+      const user = results[0];
+
+      bcrypt.compare(password, user.password, (error, result) => {
+        if (error) {
           console.log(error);
-          res.status(500).send('Error authenticating user');
+          res.status(500).send('Internal server error');
+        } else if (result === false) {
+          res.status(401).send('Invalid login credentials');
+        } else {
+          const token = jwt.sign({ user_id: user.user_id }, secretKey);
+          res.status(200).send({ token });
         }
-      }
-    });
+      });
+    }
   });
+<<<<<<< Updated upstream
   
 // Transfer money
 app.post('api/transfer', (req, res) => {
@@ -135,6 +144,67 @@ app.post('api/transfer', (req, res) => {
 		});
 	});
 }
+=======
+});
+
+// MFA endpoint
+
+// Set up email transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'dharmatejak73@gmail.com',
+    pass: 'Boogeyman@1997'
+  }
+});
+
+// Generate and send OTP to user's email
+app.post('/api/mfa/sendOTP', (req, res) => {
+  const { email } = req.body;
+
+  // Generate secret key and OTP
+  const secret = speakeasy.generateSecret({ length: 20 });
+  const token = speakeasy.totp({ secret: secret.base32, encoding: 'base32' });
+
+  // Create email message
+  const message = {
+    from: 'dharmatejak73@gmail.com',
+    to: 'tejanaidu527@gmail.com',
+    subject: 'Your OTP for MFA',
+    text: `Your OTP is ${token}`
+  };
+
+  // Send email
+  transporter.sendMail(message, (error, info) => {
+    if (error) {
+      console.log(error);
+      res.status(500).send('Failed to send OTP');
+    } else {
+      console.log(info);
+      res.status(200).send({ secret: secret.base32 });
+    }
+  });
+});
+
+// Verify OTP entered by user
+app.post('/api/mfa/verifyOTP', (req, res) => {
+  const { secret, token } = req.body;
+
+  // Verify OTP
+  const verified = speakeasy.totp.verify({
+    secret: secret,
+    encoding: 'base32',
+    token: token,
+    window: 1
+  });
+
+  if (verified) {
+    res.status(200).send('OTP verified');
+  } else {
+    res.status(401).send('Invalid OTP');
+  }
+});
+>>>>>>> Stashed changes
 
 app.listen(3001, ()=>{
     console.log("Server is running on port 3001");

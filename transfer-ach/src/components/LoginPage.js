@@ -22,7 +22,7 @@ function LoginPage() {
     }
     else 
     {
-        alert("Password and or email is not valid")
+        alert("Password and or email are not valid")
     }
   };
 

@@ -3,15 +3,16 @@ import Button from './Button';
 import InputForm from './InputForm';
 import Header from './Header';
 import axios from 'axios';
+import { isValidEmail, isPasswordLongEnough, hasPasswordRequiredChars } from '../utils/inputValidation';
 
 function RegisterPage() {
 const [formData, setFormData] = useState({
-firstName: '',
-lastName: '',
-email: '',
-password: '',
-phoneNumber: '',
-address: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phoneNumber: '',
+    address: '',
 });
 
 const handleChange = (e) => {
@@ -23,14 +24,22 @@ const handleChange = (e) => {
 const handleRegister = async (e) => {
     e.preventDefault();
 
-    try {
-        const response = await axios.post('http://localhost:3001/api/register', formData);
-        console.log(response);
-        alert('User registered successfully');
-    } catch (error) {
-        console.error(error);
-        alert(`Error registering user: ${error.message}`);
+    if (isPasswordLongEnough(formData.password) && 
+        hasPasswordRequiredChars(formData.password) &&
+        isValidEmail(formData.email)){
+        try {
+            const response = await axios.post('http://localhost:3001/api/register', formData);
+            console.log(response);
+            alert('User registered successfully');
+        } catch (error) {
+            console.error(error);
+            alert(`Error registering user: ${error.message}`);
+        }
     }
+    else {
+        alert("Email and or password are not valid");
+    } 
+
 };
 
     // Email must be valid 

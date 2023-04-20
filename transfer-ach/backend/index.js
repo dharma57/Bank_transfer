@@ -6,8 +6,6 @@ const mysql=require("mysql2")
 const speakeasy = require('speakeasy');
 const nodemailer = require('nodemailer');
 
-
-
 // Db connection to AWS
 const db=mysql.createPool({
     host: "ach-database.cpza8rgbmeji.us-east-2.rds.amazonaws.com",

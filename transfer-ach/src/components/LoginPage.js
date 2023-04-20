@@ -25,7 +25,7 @@ function LoginPage() {
     }
     else 
     {
-        alert("Password and or email are not valid")
+        alert("Password and or email are not valid \nEnsure your password contains a special character, capitalized character, number, and is at least 8 to 12 characters long! ")
     }
   };
 
@@ -36,9 +36,6 @@ function LoginPage() {
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
   };
-
-  console.log('Rendering LoginPage...');
-
 
   return (
     <div style={styles.loginPageContainer}>

@@ -3,24 +3,31 @@ import React, { useState } from 'react';
 import Button from './Button'
 import InputForm from './InputForm';
 import Header from './Header';
-
+import { isValidEmail, isPasswordLongEnough, hasPasswordRequiredChars } from '../utils/inputValidation';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = (e) => {
-    // Here we would verify the username is correct & password are 
+    // Here we would verify the email is correct & password are 
     // correct. If they are then we action them to the MFA screen. But here
     // Before we send them to the screen. We should trigger the MFA code to
     // be generated on the server and send to their email address. 
     e.preventDefault();
-    navigate('/mfa');
+
+    if (isPasswordLongEnough(password) && hasPasswordRequiredChars(password) && isValidEmail(email)){
+        navigate('/mfa');
+    }
+    else 
+    {
+        alert("Password and or email is not valid")
+    }
   };
 
-  const handleUsernameChange = (e) => {
-    setUsername(e.target.value);
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
   };
 
   const handlePasswordChange = (e) => {
@@ -41,8 +48,8 @@ function LoginPage() {
         <InputForm 
           style = {styles.formPadding}
           type="text" 
-          placeholder="Username" 
-          onChangeHandler={handleUsernameChange} 
+          placeholder="Email Address" 
+          onChangeHandler={handleEmailChange} 
         />
         <InputForm 
           style = {styles.formPadding} 

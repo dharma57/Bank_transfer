@@ -22,7 +22,7 @@ const handleChange = (e) => {
 
 const handleRegister = async (e) => {
     e.preventDefault();
-    
+
     try {
         const response = await axios.post('http://localhost:3001/api/register', formData);
         console.log(response);
@@ -32,6 +32,10 @@ const handleRegister = async (e) => {
         alert(`Error registering user: ${error.message}`);
     }
 };
+
+    // Email must be valid 
+    // Password must be at least 8 chacters long and have A capitlized letter, And at least 1 special character
+    // Password and email can not be empty
 
     return (
         <div style={styles.loginPageContainer}>
@@ -78,7 +82,7 @@ const handleRegister = async (e) => {
                         style={styles.formPadding}
                         type="text"
                         name="address"
-                        placeholder="Address"
+                        placeholder="Home Address"
                         onChangeHandler={handleChange}
                     />
                     <Button style={styles.buttonPadding} title="Register"/>

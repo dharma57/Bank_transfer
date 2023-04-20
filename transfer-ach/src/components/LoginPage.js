@@ -14,19 +14,14 @@ function LoginPage() {
   const handleLogin = async (e) =>  {
     e.preventDefault();
 
-    if (isPasswordLongEnough(password) && hasPasswordRequiredChars(password) && isValidEmail(email))
-    {
+    
         try {
-            const response_db = await axios.post('http://localhost:3001/api/mfa_gen', email);
+            const response_db = await axios.post('http://localhost:3001/api/mfa_gen', { email: email });
             navigate('/mfa');
           } catch (error) {
             alert("Problem occurred while logging in")
         }
-    }
-    else 
-    {
-        alert("Password and or email are not valid \nEnsure your password contains a special character, capitalized character, number, and is at least 8 to 12 characters long! ")
-    }
+ 
   };
 
   const handleEmailChange = (e) => {

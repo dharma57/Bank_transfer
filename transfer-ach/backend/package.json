@@ -11,7 +11,9 @@
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.0",
+    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0",
+    "node-cron": "^3.0.2",
     "nodemailer": "^6.9.1",
     "speakeasy": "^2.0.0"
   }

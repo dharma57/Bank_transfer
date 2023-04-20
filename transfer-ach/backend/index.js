@@ -5,6 +5,7 @@ const cors = require("cors");
 const mysql=require("mysql2")
 const speakeasy = require('speakeasy');
 const nodemailer = require('nodemailer');
+const cron = require('node-cron');
 
 // Db connection to AWS
 const db=mysql.createPool({
@@ -24,6 +25,37 @@ const crypto = require('crypto');
 const secretKey = crypto.randomBytes(64).toString('hex');
 const jwt = require('jsonwebtoken');
 
+// Schedule a task to run every minute
+cron.schedule('* * * * *', () => {
+	// Log the start of the cleanup task
+	console.log('Running cleanup task...');
+  
+	// SQL query to delete expired records from the MFA_Authentication table
+	const sqlMFACleanup = 'DELETE FROM MFA_Authentication WHERE expire_time < CURRENT_TIMESTAMP;';
+  
+	// SQL query to delete expired records from the JWT_Sessions table
+	const sqlJWTCleanup = 'DELETE FROM JWT_Sessions WHERE expire_time < CURRENT_TIMESTAMP;';
+  
+	// Execute the SQL query to delete expired records from the MFA_Authentication table
+	db.query(sqlMFACleanup, (error, result) => {
+		if (error) {
+			console.error('Error executing the MFA cleanup query:', error);
+		} else {
+			console.log(`Deleted ${result.affectedRows} expired MFA records.`);
+		}
+	});
+  
+	// Execute the SQL query to delete expired records from the JWT_Sessions table
+	db.query(sqlJWTCleanup, (error, result) => {
+		if (error) {
+			console.error('Error executing the JWT cleanup query:', error);
+		} else {
+			console.log(`Deleted ${result.affectedRows} expired JWT records.`);
+		}
+	});
+ });
+  
+
 // registration end point
 app.post("/api/register", async (req, res) => {
     const { first_name, last_name, email, password, phone_number, address, created_at, updated_at } = req.body;
@@ -40,17 +72,20 @@ app.post("/api/register", async (req, res) => {
 app.post("/api/mfa_gen", async (req, res) => {
     const { email } = req.body;
 	const code = Math.floor(Math.random() * (99999 - 10000 + 1) + 10000);
-    const sqlInsert = `
-		INSERT INTO MFA_Authenitication (user_id, code, expire_time) 
-		SELECT user_id, ?, INTERVAL 5 MINUTE) 
-		FROM User WHERE email = ?;`;
-	console.log("Trying")
+	
+	const sqlInsert = `
+    INSERT INTO MFA_Authentication (user_id, code, expire_time)
+        SELECT user_id, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE)
+        FROM User WHERE email = ?;
+	`;
+
     db.query(sqlInsert, [code,email], (error, result) => {
 		if (error) {
+			console.log('Error:', error);
 			res.status(500).json({ error: 'Error executing the query' });
 		}
 		else
-		{
+		{	console.log(result)
 			if (result.affectedRows == 1)
 			{
 				// Attempt to send email or sms

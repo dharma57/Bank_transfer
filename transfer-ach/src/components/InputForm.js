@@ -18,7 +18,7 @@ const styles = {
     formStyle : {
         borderRadius: 10,
         borderWidth: 0,
-        height: 40,
+        minHeight: '40px',
         fontSize : 13,
         width: '72%',
         color: 'white',

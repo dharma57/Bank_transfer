@@ -53,7 +53,7 @@ const styles = {
     backgroundColor: '#333',
   },
   registerButton: {
-    backgroundColor: 'white',
+    backgroundColor: '#509758',
     color: 'black',
     border: 'none',
     borderRadius: 5,

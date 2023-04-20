@@ -42,7 +42,7 @@ const style = {
     buttonStyle : {
         borderRadius: 10,
         borderWidth: 0,
-        height: 40,
+        minHeight: 40,
         fontSize : 17,
         width: '75%',
         color: 'white'

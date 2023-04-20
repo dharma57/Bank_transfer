@@ -6,45 +6,40 @@ import axios from 'axios';
 import { isValidEmail, isPasswordLongEnough, hasPasswordRequiredChars } from '../utils/inputValidation';
 
 function RegisterPage() {
-const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    phoneNumber: '',
-    address: '',
-});
+    const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        phoneNumber: '',
+        address: '',
+    });
 
-const handleChange = (e) => {
+    const handleChange = (e) => {
 
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+        setFormData({ ...formData, [e.target.name]: e.target.value });
 
-};
+    };
 
-const handleRegister = async (e) => {
-    e.preventDefault();
+    const handleRegister = async (e) => {
+        e.preventDefault();
 
-    if (isPasswordLongEnough(formData.password) && 
-        hasPasswordRequiredChars(formData.password) &&
-        isValidEmail(formData.email)){
-        try {
-            const response = await axios.post('http://localhost:3001/api/register', formData);
-            console.log(response);
-            alert('User registered successfully');
-        } catch (error) {
-            console.error(error);
-            alert(`Error registering user: ${error.message}`);
+        if (isPasswordLongEnough(formData.password) && 
+            hasPasswordRequiredChars(formData.password) &&
+            isValidEmail(formData.email)){
+            try {
+                const response = await axios.post('http://localhost:3001/api/register', formData);
+                console.log(response);
+                alert('User registered successfully');
+            } catch (error) {
+                console.error(error);
+                alert(`Error registering user: ${error.message}`);
+            }
         }
-    }
-    else {
-        alert("Email and or password are not valid");
-    } 
-
-};
-
-    // Email must be valid 
-    // Password must be at least 8 chacters long and have A capitlized letter, And at least 1 special character
-    // Password and email can not be empty
+        else {
+            alert("Email and or password are not valid");
+        } 
+    };
 
     return (
         <div style={styles.loginPageContainer}>

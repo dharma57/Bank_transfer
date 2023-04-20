@@ -21,7 +21,7 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const secretKey = crypto.randomBytes(64).toString('hex');
 const jwt = require('jsonwebtoken');
@@ -37,7 +37,63 @@ app.post("/api/register", async (req, res) => {
         console.log(error);
       }
     })
-  });
+});
+
+app.post("/api/mfa_gen", async (req, res) => {
+    const { email } = req.body;
+	const code = Math.floor(Math.random() * (99999 - 10000 + 1) + 10000);
+    const sqlInsert = `
+		INSERT INTO MFA_Authenitication (user_id, code, expire_time) 
+		SELECT user_id, ?, INTERVAL 5 MINUTE) 
+		FROM User WHERE email = ?;`;
+
+    db.query(sqlInsert, [code,email], (error, result) => {
+		if (error) {
+			res.status(500).json({ error: 'Error executing the query' });
+		}
+		else
+		{
+			if (result.affectedRows == 1)
+			{
+				// Attempt to send email or sms
+				res.status(200).json({
+					message: 'MFA code generated and stored',
+					email: email,
+					code: code,
+				});
+			}
+			else 
+			{
+				res.status(500).json({ error: 'Error creating MFA' });
+			}
+		}
+    })
+});
+
+app.post("/api/mfa_verify", async (req, res) => {
+    const { code, email } = req.body;
+    const sqlDeleteMfaTuple = `
+  		DELETE FROM MFA_Authenitication
+  		WHERE user_id = (SELECT user_id FROM User WHERE email = ?) AND 
+		code = ? AND expire_time > NOW();`;
+
+	db.query(sqlDeleteMfaTuple, [email, code], (error, result) => {
+		if (error) {
+			res.status(500).json({ error: 'Error executing the query' });
+		} else {
+			if ( result.affectedRows == 1)
+			{
+				res.status(200).json({ message: 'Success' });
+			}
+			else
+			{
+				res.status(500).json({ error: 'Incorrect Code entered or time expired' });
+			}
+		}
+	});
+});
+
+
 
 // Login endpoint
 app.post('/api/login', (req, res) => {
@@ -219,6 +275,7 @@ const transporter = nodemailer.createTransport({
     pass: 'Boogeyman@1997'
   }
 });
+});
 
 // Generate and send OTP to user's email
 app.post('/api/mfa/sendOTP', (req, res) => {
@@ -269,4 +326,4 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 
 app.listen(3001, ()=>{
     console.log("Server is running on port 3001");
-})
+});

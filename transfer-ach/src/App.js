@@ -11,14 +11,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-<<<<<<< Updated upstream
         <Route path="/" element={<WelcomePage/>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/mfa" element={<MFAPage/>} />
-=======
         <Route path="/" element={<LoginPage />} />
-        <Route path="/mfa/SendOTP" element={<MFAPage/>} />
->>>>>>> Stashed changes
         <Route path="/home" element={<HomePage/>} />
         <Route path="/register" element={<RegisterPage/>} />
         <Route path="/login" element={<LoginPage/>} />

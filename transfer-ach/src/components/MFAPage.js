@@ -8,7 +8,7 @@ import axios from 'axios';
 function MFAPage() {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
-
+  
   const handleMFA = (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');

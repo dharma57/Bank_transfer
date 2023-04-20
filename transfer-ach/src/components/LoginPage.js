@@ -3,44 +3,44 @@ import React, { useState } from 'react';
 import Button from './Button'
 import InputForm from './InputForm';
 import Header from './Header';
-<<<<<<< Updated upstream
 import { isValidEmail, isPasswordLongEnough, hasPasswordRequiredChars } from '../utils/inputValidation';
-=======
 import axios from 'axios';
->>>>>>> Stashed changes
 
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = (e) => {
-<<<<<<< Updated upstream
-    // Here we would verify the email is correct & password are 
-    // correct. If they are then we action them to the MFA screen. But here
-    // Before we send them to the screen. We should trigger the MFA code to
-    // be generated on the server and send to their email address. 
-    e.preventDefault();
+  const handleLogin = async (e) =>  {
 
     if (isPasswordLongEnough(password) && hasPasswordRequiredChars(password) && isValidEmail(email)){
-        navigate('/mfa');
+        e.preventDefault();
+
+        axios.post('http://localhost:3001/api/login', { email, password })
+            .then( async (response) => {
+
+            // localStorage.setItem('token', response.data.token);
+
+            const response_db = await axios.post('http://localhost:3001/api/mfa_gen', email);
+        
+            if(response_db.status =  200 ){
+    
+                navigate('/mfa');
+            }
+            else if (response_db.status = 500)
+            {
+                alert(response_db.error)
+            }
+        })
+        .catch(error => {
+            console.log(error);
+            alert('Invalid login credentials');
+        });
     }
     else 
     {
         alert("Password and or email are not valid")
     }
-=======
-    e.preventDefault();
-    axios.post('http://localhost:3001/api/login', { username, password })
-      .then(response => {
-        localStorage.setItem('token', response.data.token);
-        navigate('/mfa');
-      })
-      .catch(error => {
-        console.log(error);
-        alert('Invalid login credentials');
-      });
->>>>>>> Stashed changes
   };
 
   const handleEmailChange = (e) => {

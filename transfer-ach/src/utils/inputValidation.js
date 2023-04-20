@@ -18,10 +18,6 @@ export const hasPasswordRequiredChars = (password) => {
     const specialCharRegex = /[\W_]/;
     const digitRegex = /[0-9]/;
 
-    console.log(uppercaseRegex.test(password))
-    console.log(specialCharRegex.test(password))
-    console.log(digitRegex.test(password))
-
     return uppercaseRegex.test(password) && specialCharRegex.test(password) && digitRegex.test(password);
 };
   

@@ -65,34 +65,33 @@ app.post('/api/login', (req, res) => {
       });
     }
   });
-<<<<<<< Updated upstream
   
 // Transfer money
-app.post('api/transfer', (req, res) => {
+app.post("api/transfer", (req, res) => {
 	const {toUsername, fromUsername, amount} = req.body;
 		
 	// Get recieving user bank account
-	var query = 'SELECT * FROM Bank_Account WHERE user_id = (SELECT user_id from User WHERE email = ?)';
-	db.query(query, [toUsername], async (error, results) => {
+	var query = "SELECT * FROM Bank_Account WHERE user_id = (SELECT user_id from User WHERE email = ?)";
+	db.query(query, [toUsername], async (error, results, fields) => {
 		if (error) {
 			console.log(error);
-			res.status(500).send('Error fetching recieving user bank account from database');
+			res.status(500).send("Error fetching recieving user bank account from database");
 		} 
 		else if (results.length === 0) {
-			res.status(401).send('Recieving user does not have an attached bank account');
+			res.status(401).send("Recieving user does not have an attached bank account");
 		} 
 		else {
 			var toUser = results[0];
 		}
 		
 		// Get sending user bank account
-		db.query(query, [fromUsername], async (error, results) => {
+		db.query(query, [fromUsername], async (error, results, fields) => {
 			if (error) {
 				console.log(error);
-				res.status(500).send('Error fetching sending user bank account from database');
+				res.status(500).send("Error fetching sending user bank account from database");
 			} 
 			else if (results.length === 0) {
-				res.status(401).send('Sending user does not have an attached bank account');
+				res.status(401).send("Sending user does not have an attached bank account");
 			} 
 			else {
 				var fromUser = results[0];
@@ -103,13 +102,13 @@ app.post('api/transfer', (req, res) => {
 					// Math
 					toUser.balance = toUser.balance + amount;
 					fromUser.balance = fromUser.balance - amount;
-					query = 'UPDATE Bank_Account (SET balance = ?, updated_at = NOW()) WHERE bank_account_id = ?';
+					query = "UPDATE Bank_Account (SET balance = ?, updated_at = NOW()) WHERE bank_account_id = ?";
 					
 					// Update recieving user account.
 					db.query(query, [toUser.balance, toUser.bank_account_id], async (error, results) => {
 						if (error) {
 							console.log(error);
-							res.status(500).send('Error updating recieving user bank account');
+							res.status(500).send("Error updating recieving user bank account");
 						} 
 						else {
 							
@@ -117,16 +116,16 @@ app.post('api/transfer', (req, res) => {
 							db.query(query, [fromUser.balance, fromUser.bank_account_id], async (error, results) => {
 								if (error) {
 									console.log(error);
-									res.status(500).send('Error updating recieving user bank account');
+									res.status(500).send("Error updating recieving user bank account");
 								} 
 								else {
 									
 									// Update ACH_Transaction table
-									query = 'INSERT INTO ACH_Transaction (origin_bank_account_id, destinatio_bank_account_id, amount, description, transaction_date, transaction_type, transaction_status_id, created_at, updated_at) VALUES (?, ?, ?, \'description\', NOW(), 0, 0, NOW(), NOW())';
+									query = "INSERT INTO ACH_Transaction (origin_bank_account_id, destinatio_bank_account_id, amount, description, transaction_date, transaction_type, transaction_status_id, created_at, updated_at) VALUES (?, ?, ?, \'description\', NOW(), 0, 0, NOW(), NOW())";
 									db.query(query, [fromUser.user_id, toUser.user_id, amount], async (error, results) => {
 										if (error) {
 											console.log(error);
-											res.status(500).send('Error updating recieving user bank account');
+											res.status(500).send("Error updating recieving user bank account");
 										} 
 										else {
 											console.log("Transaction successful.");
@@ -138,13 +137,76 @@ app.post('api/transfer', (req, res) => {
 					});
 				}
 				else {
-					res.status(401).send('Sending user does not have the funds to transfer the specified amount');
+					res.status(401).send("Sending user does not have the funds to transfer the specified amount");
 				}
 			}
 		});
 	});
-}
-=======
+}});
+
+// Get all transactions of user
+app.post("api/transactions", (req, res) => {
+	const {username} = req.body;
+	
+	// 	SELECT SubT.origin_email, User.email AS destination_email, SubT.amount, 
+	// 	SubT.transaction_date, SubT.transaction_type
+	// 
+	// 	FROM User, 
+	// 
+	// 	(
+	// 		SELECT User.email AS origin_email, U
+	// 		T.destination_bank_account_id AS destination_bank_account_id, 
+	// 		UT.amount AS amount, UT.transaction_date AS transaction_date, 
+	// 		UT.transaction_type AS transaction_type
+	// 
+	// 		From User, 
+	// 
+	// 		(
+	// 			SELECT origin_bank_account_id, destinatio_bank_account_id, amount, 
+	// 			transaction_date, transaction_type
+	// 
+	// 			FROM ACH_Transaction
+	// 
+	// 			WHERE origin_bank_account_id = 
+	// 				(SELECT user_id FROM User WHERE email = ?)
+	// 
+	// 			OR 
+	// 			destination_bank_account_id = 
+	// 				(SELECT user_id FROM User WHERE email = ?)
+	// 		) UT
+	// 
+	// 		WHERE
+	// 		User.user_id = UT.origin_bank_account_id
+	// 	) SubT
+	// 
+	// 	WHERE
+	// 	SubT.destination_bank_account_id = User.id
+	//	
+	// 	FOR JSON AUTO
+	
+	// Get transactions
+	var query = "SELECT SubT.origin_email, User.email AS destination_email, SubT.amount, SubT.transaction_date, SubT.transaction_type FROM User, (SELECT User.email AS origin_email, UT.destination_bank_account_id AS destination_bank_account_id, UT.amount AS amount, UT.transaction_date AS transaction_date, UT.transaction_type AS transaction_type From User, (SELECT origin_bank_account_id, destinatio_bank_account_id, amount, transaction_date, transaction_type FROM ACH_Transaction WHERE origin_bank_account_id =  (SELECT user_id FROM User WHERE email = ?) OR destination_bank_account_id = (SELECT user_id FROM User WHERE email = ?)) UT WHERE User.user_id = UT.origin_bank_account_id ) SubT WHERE SubT.destination_bank_account_id = User.id FOR JSON AUTO";
+	db.query(query, [username, username], async (error, results1, fields) => {
+		if (error) {
+			console.log(error);
+			res.status(500).send("Error retrieving transactions for user");
+		} 
+		else {
+			
+			// Get users
+			query = "SELECT user_id, email FROM USER";
+			db.query(query, async (error, results2, fields) => {
+				if (error) {
+					console.log(error);
+					res.status(500).send("Error retrieving transactions for user");
+				} 
+				else {
+					res.status(200).send(results);
+				}
+			}
+			
+			// res.status(200).send(results)
+		}
 });
 
 // MFA endpoint
@@ -204,7 +266,6 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
     res.status(401).send('Invalid OTP');
   }
 });
->>>>>>> Stashed changes
 
 app.listen(3001, ()=>{
     console.log("Server is running on port 3001");

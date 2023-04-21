@@ -221,14 +221,14 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 			const otpEncrypted = results[0].mfa_code
 			var otpCreateTime = new Date(results[0].created_at)
 			
-			var dateObject = new Date();
-			var date = (`0 ${dateObject.getDate()}`).slice(-2);
-			var month = (`0 ${dateObject.getMonth() + 1}`).slice(-2);
-			var year = dateObject.getFullYear();
-			var hours = dateObject.getHours();
-			var minutes = dateObject.getMinutes();
-			var seconds = dateObject.getSeconds();
-			var timestampNow = new Date(year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds);
+			var timestampNow = new Date();
+			// var date = (`0 ${dateObject.getDate()}`).slice(-2);
+			// ar month = (`0 ${dateObject.getMonth() + 1}`).slice(-2);
+			// var year = dateObject.getFullYear();
+			// var hours = dateObject.getHours();
+			// var minutes = dateObject.getMinutes();
+			// var seconds = dateObject.getSeconds();
+			// var timestampNow = new Date(year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds);
 			
 			let decryptedSecret = decipher.update(otpEncrypted, 'hex', 'utf8');
 

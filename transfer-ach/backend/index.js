@@ -222,89 +222,102 @@ app.post('/api/login', (req, res) => {
 });
   
 // Transfer money
-app.post("api/transfer", (req, res) => {
-	const {toEmail, fromUsername, amount} = req.body;
-		
-	// Get recieving user bank account
-	var query = "SELECT * FROM Bank_Account WHERE user_id = (SELECT user_id from User WHERE email = ?)";
-	db.query(query, [toUsername], async (error, results, fields) => {
-		if (error) {
-			console.log(error);
-			res.status(500).send("Error fetching recieving user bank account from database");
-		} 
-		else if (results.length === 0) {
-			res.status(401).send("Recieving user does not have an attached bank account");
-		} 
-		else {
-			var toUser = results[0];
+app.post("api/transfer", async (req, res) => {
+
+	const { token, toEmail, amount } = req.body;
+
+	try {
+		// Verify the JWT token and fetch the user_id of the sender
+		const decodedToken = jwt.verify(token, secretKey);
+		const senderUserId = decodedToken.user_id;
+
+		// Check the balance of the sender and get their bank account ID
+		const senderQuery = `
+			SELECT bank_account_id, balance
+			FROM Bank_Account
+			WHERE user_id = ?;
+		`;
+
+		const [senderResult] = await db.query(senderQuery, [senderUserId]);
+
+		if (!senderResult || senderResult.balance < amount) 
+		{
+			return res.status(400).json({ error: 'Insufficient balance' });
 		}
-		
-		// Get sending user bank account
-		db.query(query, [fromUsername], async (error, results, fields) => {
-			if (error) {
-				console.log(error);
-				res.status(500).send("Error fetching sending user bank account from database");
-			} 
-			else if (results.length === 0) {
-				res.status(401).send("Sending user does not have an attached bank account");
-			} 
-			else {
-				var fromUser = results[0];
-				
-				// Check that sending user has funds
-				if (fromUserBalance >= amount) {
-					
-					// Math
-					toUser.balance = toUser.balance + amount;
-					fromUser.balance = fromUser.balance - amount;
-					query = "UPDATE Bank_Account (SET balance = ?, updated_at = NOW()) WHERE bank_account_id = ?";
-					
-					// Update recieving user account.
-					db.query(query, [toUser.balance, toUser.bank_account_id], async (error, results) => {
-						if (error) {
-							console.log(error);
-							res.status(500).send("Error updating recieving user bank account");
-						} 
-						else {
-							
-							// Update sending user account
-							db.query(query, [fromUser.balance, fromUser.bank_account_id], async (error, results) => {
-								if (error) {
-									console.log(error);
-									res.status(500).send("Error updating recieving user bank account");
-								} 
-								else {
-									
-									// Update ACH_Transaction table
-									query = "INSERT INTO ACH_Transaction (origin_bank_account_id, destinatio_bank_account_id, amount, description, transaction_date, transaction_type, transaction_status_id, created_at, updated_at) VALUES (?, ?, ?, \'description\', NOW(), 0, 0, NOW(), NOW())";
-									db.query(query, [fromUser.user_id, toUser.user_id, amount], async (error, results) => {
-										if (error) {
-											console.log(error);
-											res.status(500).send("Error updating recieving user bank account");
-										} 
-										else {
-											console.log("Transaction successful.");
-										}
-									});
-								}
-							});
-						}
-					});
-				}
-				else {
-					res.status(401).send("Sending user does not have the funds to transfer the specified amount");
-				}
-			}
-		});
-	});
+
+		const senderBankAccountId = senderResult.bank_account_id;
+
+		// Verify that the receiving person has a bank account and get their bank account ID
+		const receiverQuery = `
+			SELECT bank_account_id
+			FROM Bank_Account
+			INNER JOIN User ON Bank_Account.user_id = User.user_id
+			WHERE User.email = ?;
+		`;
+
+		const [receiverResult] = await db.query(receiverQuery, [toEmail]);
+
+		if (!receiverResult) 
+		{
+			return res.status(400).json({ error: 'Receiver does not have a bank account' });
+		}
+
+		const receiverBankAccountId = receiverResult.bank_account_id;
+
+		// Insert the transaction into the ACH_Transaction table
+		const insertTransactionQuery = `
+			INSERT INTO ACH_Transaction (
+				origin_bank_account_id,
+				destination_bank_account_id,
+				amount,
+				transaction_type,
+				transaction_status_id) 
+			VALUES (?, ?, ?, ?, ?);
+		`;
+
+		// If this fails then a error will eccur and the catch will be called
+		db.query(insertTransactionQuery, [
+			senderBankAccountId,
+			receiverBankAccountId,
+			amount,
+			'Debit',
+			0, // Replace with the appropriate maybe remove this
+		]);
+
+		// Update the balances of both the sender and the receiver
+		const updateSenderBalanceQuery = `
+			UPDATE Bank_Account
+			SET balance = balance - ?
+			WHERE bank_account_id = ?;
+		`;
+
+		db.query(updateSenderBalanceQuery, [amount, senderBankAccountId]);
+
+		const updateReceiverBalanceQuery = `
+			UPDATE Bank_Account
+			SET balance = balance + ?
+			WHERE bank_account_id = ?;
+		`;
+
+		db.query(updateReceiverBalanceQuery, [amount, receiverBankAccountId]);
+
+		res.status(200).json({ success: 'Transaction completed' });
+	} 
+	catch (error) 
+	{
+		console.log(error);
+		res.status(500).json({ error: 'An error occurred while processing the transaction' });
+	}
+
 });
 
 // Get all transactions of user
 app.post("api/transactions", (req, res) => {
 	const {token} = req.body;
 
-	// We must cover the token using JWT and then 
-	// get the user ID
+	const decodedToken = jwt.verify(token, secretKey);
+	
+	const userId = decodedToken.user_id;
 
 	const sqlQuery = `
 	SELECT
@@ -326,7 +339,7 @@ app.post("api/transactions", (req, res) => {
 		ACH_Transaction.transaction_date DESC;
 	`
 	
-	db.query(query, [token.user_id, token.user_id], async (error, results) => {
+	db.query(query, [userId, userId], async (error, results) => {
 		if (error) 
 		{
 			console.log(error);
@@ -343,6 +356,9 @@ app.post("api/transactions", (req, res) => {
 app.post("api/balance", (req, res) => {
 	const {token} = req.body;
 
+	const decodedToken = jwt.verify(token, secretKey);
+	
+	const userId = decodedToken.user_id;
 	// We must cover the token using JWT and then 
 	// get the user ID
 	const sqlQuery = `
@@ -359,7 +375,7 @@ app.post("api/balance", (req, res) => {
 			user_id = ?;
 	`
 
-	db.query(sqlQuery, [token.user_id], async (error, results, fields) =>
+	db.query(sqlQuery, [userId], async (error, results, fields) =>
 	{
 		if (error) 
 		{
@@ -374,20 +390,19 @@ app.post("api/balance", (req, res) => {
 });
 
 
-
-
 // Generate and send OTP to user's email
 app.post('/api/mfa/sendOTP', (req, res) => {
 	const { email } = req.body;
 
 	// Generate secret key and OTP
 	const secret = speakeasy.generateSecret({ length: 20 });
+
 	const token = speakeasy.totp({ secret: secret.base32, encoding: 'base32' });
 
 	// Create email message
 	const message = {
 		from: 'dharmatejak73@gmail.com',
-		to: 'tejanaidu527@gmail.com',
+		to: 'tejanaidu527@gmail.com', // replace with email
 		subject: 'Your OTP for MFA',
 		text: `Your OTP is ${token}`
 	};
@@ -410,6 +425,7 @@ app.post('/api/mfa/sendOTP', (req, res) => {
 
 // Verify OTP entered by user
 app.post('/api/mfa/verifyOTP', (req, res) => {
+	
 	const { secret, token } = req.body;
 
 	// Verify OTP

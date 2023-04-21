@@ -39,28 +39,28 @@ function TransactionTableRow(props) {
     }
 
     return (
-        <div style={styles.tableContainer}>
+        <td style={styles.tableContainer}>
             <div style={styles.nameContainer}>
                 <div style={{...styles.circle,...circleStyle}}>
                     <p>
                         {props.user.charAt(0).toUpperCase()}
                     </p>
                 </div>
-                <dv style= {{marginLeft:'13px'}}>
+                <div style= {{marginLeft:'13px'}}>
                     <p style={styles.username}>
                         {props.user}
                     </p>
                     <p style={styles.date}>
                         {props.date}
                     </p>
-                </dv>
+                </div>
             </div>
             <div style={styles.amountContainer}>
                 <p style={styles.amount}>
                     {`+$${props.amount}`}
                 </p>
             </div>
-        </div>
+        </td>
   );
 }
 

@@ -28,6 +28,8 @@ const jwt = require('jsonwebtoken');
 const MFSEncryptionKey = crypto.randomBytes(32);
 // Generate a random initialization vector (IV)
 const iv = crypto.randomBytes(16); // must store in ENV
+console.log(iv)
+console.log(MFSEncryptionKey)
 
 
 //----------- DUMMY TEST 

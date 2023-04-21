@@ -94,6 +94,40 @@ app.post('/api/mfa/sendOTP', async (req, res) => {
 
 	const token = speakeasy.totp({ secret: decryptedSecret.base32, encoding: 'base32' });
 
+	// Add token to database
+	const sqlInsert = `
+	INSERT INTO MFA_Tokens (user_id, mfa_code, created_at)
+	VALUES (?, ?, NOW())`;
+	db.query('SELECT * FROM User WHERE email = ?', [email], (error, results) => 
+	{
+		if (error) 
+		{
+			console.log(error);
+			res.status(500).send('Internal server error');
+		} 
+		else if (results.length === 0) 
+		{
+			res.status(401).send('Invalid email');
+		} 
+		else 
+		{
+			var idx = results[0].user_id
+			db.query(sqlInsert, [idx, token], (error, result) => {
+				if (error) {
+					res.status(500).send('Internal server error');
+				}
+				else if (result.affectedRows == 1)
+				{
+					res.status(200)
+				}
+				else
+				{
+					res.status(500).send('Error adding OTP to database.')
+				}
+			});
+		}
+	});
+
 	// Create email message
 	const message = {
 		from: 'dharmatejak73@gmail.com',

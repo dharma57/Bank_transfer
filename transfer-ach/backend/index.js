@@ -120,27 +120,39 @@ app.post('/api/mfa/sendOTP', async (req, res) => {
 
 // registration end point
 app.post("/api/register", async (req, res) => {
-    const { first_name, last_name, email, password, phone_number, address, created_at, updated_at } = req.body;
-    const user_id = Math.floor(Math.random() * 1000000000);
-    const hashedPassword = await bcrypt.hash(password, 10); // Hash the password with salt rounds of 10
+    const { first_name, last_name, email, password, phone_number, address } = req.body;
+	const hashedPassword = await bcrypt.hash(password, 10); // Hash the password with salt rounds of 10
 
-	// Create MFA Session key to insert into the table 
+	// Create MFA Session key to insert into the table
 	const MFASecret = speakeasy.generateSecret({ length: 32 });
 
 	const cipher = crypto.createCipheriv('aes-256-cbc', MFSEncryptionKey, iv);
 
 	let encryptedSecret = cipher.update(MFASecret.base32, 'utf8', 'hex');
-	
+
 	encryptedSecret += cipher.final('hex');
 
 	// store encryptedSecret in DB
+	// We should manage the MFA encrypted secret storage in the future
 
-    const sqlInsert = "INSERT INTO achdatabase.User(user_id, first_name, last_name, email, password, phone_number, address, created_at, updated_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())";
-    db.query(sqlInsert, [user_id, first_name, last_name, email, hashedPassword, phone_number, address, created_at, updated_at], (error, result) => {
-      if (error) {
-        console.log(error);
-      }
-    })
+	const sqlInsert = `
+	INSERT INTO User(first_name, last_name, email, password, phone_number, address, created_at, updated_at)
+	VALUES (?,?,?,?,?,?,NOW(),NOW())`;
+
+	db.query(sqlInsert, [first_name, last_name, email, hashedPassword, phone_number, address], (error, result) => {
+		if (error) {
+			res.status(500).send('Internal server error');
+		}
+		else if (result.affectedRows == 1)
+		{
+			res.status(200)
+		}
+		else
+		{
+			res.status(500).send('User could not be inserted into database')
+		}
+	});
+
 });
 
 // Verify OTP entered by user
@@ -295,31 +307,23 @@ app.post("api/transactions", (req, res) => {
 	// get the user ID
 
 	const sqlQuery = `
-		SELECT
-			ACH_Transaction.*,
-			Transaction_Status.status_name,
-			Transaction_Status.description AS status_description,
-			Origin_User.user_id AS origin_user_id,
-			Origin_User.first_name AS origin_first_name,
-			Origin_User.last_name AS origin_last_name,
-			Origin_Account.bank_name AS origin_bank_name,
-			Origin_Account.account_number AS origin_account_number,
-			Destination_User.user_id AS destination_user_id,
-			Destination_User.first_name AS destination_first_name,
-			Destination_User.last_name AS destination_last_name,
-			Destination_Account.bank_name AS destination_bank_name,
-			Destination_Account.account_number AS destination_account_number
-		FROM
-			ACH_Transaction
-			INNER JOIN Transaction_Status ON ACH_Transaction.transaction_status_id = Transaction_Status.transaction_status_id
-			INNER JOIN Bank_Account AS Origin_Account ON ACH_Transaction.origin_bank_account_id = Origin_Account.bank_account_id
-			INNER JOIN Bank_Account AS Destination_Account ON ACH_Transaction.destination_bank_account_id = Destination_Account.bank_account_id
-			INNER JOIN User AS Origin_User ON Origin_Account.user_id = Origin_User.user_id
-			INNER JOIN User AS Dest  ination_User ON Destination_Account.user_id = Destination_User.user_id
-		WHERE
-			Origin_User.user_id = ? OR Destination_User.user_id = ?
-		ORDER BY
-			ACH_Transaction.transaction_date DESC;
+	SELECT
+		ACH_Transaction.amount,
+		Origin_User.first_name AS origin_first_name,
+		Origin_User.last_name AS origin_last_name,
+		Destination_User.first_name AS destination_first_name,
+		Destination_User.last_name AS destination_last_name,
+		IF(Origin_User.user_id = ?, 'From', 'To') AS direction
+	FROM
+		ACH_Transaction
+		INNER JOIN Bank_Account AS Origin_Account ON ACH_Transaction.origin_bank_account_id = Origin_Account.bank_account_id
+		INNER JOIN Bank_Account AS Destination_Account ON ACH_Transaction.destination_bank_account_id = Destination_Account.bank_account_id
+		INNER JOIN User AS Origin_User ON Origin_Account.user_id = Origin_User.user_id
+		INNER JOIN User AS Destination_User ON Destination_Account.user_id = Destination_User.user_id
+	WHERE
+		Origin_User.user_id = ? OR Destination_User.user_id = ?
+	ORDER BY
+		ACH_Transaction.transaction_date DESC;
 	`
 	
 	db.query(query, [token.user_id, token.user_id], async (error, results) => {

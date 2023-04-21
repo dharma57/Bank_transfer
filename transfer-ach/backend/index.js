@@ -97,7 +97,7 @@ app.post('/api/mfa/sendOTP', async (req, res) => {
 	// Create email message
 	const message = {
 		from: 'dharmatejak73@gmail.com',
-		to: 'dumasjean94@outlook.com',
+		to: email,
 		subject: 'Your OTP for MFA',
 		text: `Your OTP is ${token}`
 	};
@@ -393,63 +393,6 @@ app.post("api/balance", (req, res) => {
 			res.status(200).send({amount:results});
 		}
 	});
-});
-
-
-// Generate and send OTP to user's email
-app.post('/api/mfa/sendOTP', (req, res) => {
-	const { email } = req.body;
-
-	// Generate secret key and OTP
-	const secret = speakeasy.generateSecret({ length: 20 });
-
-	const token = speakeasy.totp({ secret: secret.base32, encoding: 'base32' });
-
-	// Create email message
-	const message = {
-		from: 'dharmatejak73@gmail.com',
-		to: email, 
-		subject: 'Your OTP for MFA',
-		text: `Your OTP is ${token}`
-	};
-
-	// Send email
-	transporter.sendMail(message, (error, info) => 
-	{
-		if (error) 
-		{
-			console.log(error);
-			res.status(500).send('Failed to send OTP');
-		} 
-		else 
-		{
-			console.log(info);
-			res.status(200).send({ secret: secret.base32 });
-		}
-	});
-});
-
-// Verify OTP entered by user
-app.post('/api/mfa/verifyOTP', (req, res) => {
-
-	const { secret, token } = req.body;
-
-	// Verify OTP
-	const verified = speakeasy.totp.verify({
-		secret: secret,
-		encoding: 'base32',
-		token: token,
-		window: 1
-	});
-
-	if (verified) 
-	{
-		res.status(200).send('OTP verified');
-	} 
-	else 
-	{
-		res.status(401).send('Invalid OTP');
-	}
 });
 
 app.listen(3001, () => {

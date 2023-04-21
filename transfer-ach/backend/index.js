@@ -51,7 +51,7 @@ const transporter = nodemailer.createTransport({
 // Maybe create a scheduler to rotate the keys for MFA and JWT for users
 /* cron.schedule('* * * * *', () => {
 	// Log the start of the cleanup task
-	console.log('Running cleanup task...');
+	('Running cleanup task...');
   
 	// SQL query to delete expired records from the MFA_Authentication table
 	const sqlMFACleanup = 'DELETE FROM MFA_Authentication WHERE expire_time < CURRENT_TIMESTAMP;';
@@ -64,7 +64,7 @@ const transporter = nodemailer.createTransport({
 		if (error) {
 			console.error('Error executing the MFA cleanup query:', error);
 		} else {
-			console.log(`Deleted ${result.affectedRows} expired MFA records.`);
+			(`Deleted ${result.affectedRows} expired MFA records.`);
 		}
 	});
   
@@ -73,49 +73,10 @@ const transporter = nodemailer.createTransport({
 		if (error) {
 			console.error('Error executing the JWT cleanup query:', error);
 		} else {
-			console.log(`Deleted ${result.affectedRows} expired JWT records.`);
+			(`Deleted ${result.affectedRows} expired JWT records.`);
 		}
 	});
  }); */
-
- // Generate and send OTP to user's email
-app.post('/api/mfa/sendOTP', async (req, res) => {
-	const { email } = req.body;
-
-	// Generate secret key and OTP
-	// Sercret should be encrypted and store in DB and assoicted with user. shouldnt have to 
-
-	// Decrypt the secret key
-	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
-
-	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
-
-	decryptedSecret += decipher.final('utf8');
-
-	const token = speakeasy.totp({ secret: decryptedSecret.base32, encoding: 'base32' });
-
-	// Create email message
-	const message = {
-		from: 'dharmatejak73@gmail.com',
-		to: email,
-		subject: 'Your OTP for MFA',
-		text: `Your OTP is ${token}`
-	};
-
-	// Send email
-	transporter.sendMail(message, (error, info) => {
-		if (error) 
-		{
-			console.log('Failed to send OTP');
-			res.status(500).send('Failed to send OTP');
-		} 
-		else 
-		{
-			console.log(info);
-			res.status(200)
-		}
-	});
-  });
   
 // registration end point
 app.post("/api/register", async (req, res) => {
@@ -133,12 +94,12 @@ app.post("/api/register", async (req, res) => {
 
 	encryptedSecret += cipher.final('hex');
 
-	// store encryptedSecret in DB
+	// Store encryptedSecret in DB
 	// We should manage the MFA encrypted secret storage in the future
 
 	const sqlInsert = `
-	INSERT INTO User(first_name, last_name, email, password, phone_number, address, created_at, updated_at)
-	VALUES (?,?,?,?,?,?,NOW(),NOW())`;
+		INSERT INTO User(first_name, last_name, email, password, phone_number, address, created_at, updated_at)
+		VALUES (?,?,?,?,?,?,NOW(),NOW())`;
 
 	db.query(sqlInsert, [first_name, last_name, email, hashedPassword, phone_number, address], (error, result) => {
 		if (error) {
@@ -156,9 +117,50 @@ app.post("/api/register", async (req, res) => {
 
 });
 
+ // Generate and send OTP to user's email
+ app.post('/api/mfa/sendOTP', async (req, res) => {
+	const { email } = req.body;
+
+	// Generate secret key and OTP
+	// Sercret should be encrypted and store in DB and assoicted with user. shouldnt have to 
+	// Decrypt the secret key
+
+	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+
+	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
+
+	decryptedSecret += decipher.final('utf8');
+
+	const token = speakeasy.totp({ secret: decryptedSecret, encoding: 'base32',step: 30 });
+	(token.length)
+	// Create email message
+	const message = {
+		from: 'dharmatejak73@gmail.com',
+		to: email,
+		subject: 'Your OTP for MFA',
+		text: `Your OTP is ${token}`
+	};
+
+	// Send email
+	transporter.sendMail(message, (error, info) => {
+		if (error) 
+		{
+			('Failed to send OTP');
+			res.status(500).send('Failed to send OTP');
+		} 
+		else 
+		{
+			(info);
+			res.status(200)
+		}
+	});
+});
+
 // Verify OTP entered by user
 app.post('/api/mfa/verifyOTP', (req, res) => {
-	const { token } = req.body;
+	const { code, email } = req.body;
+	
+	(code.length)
 
 	// Decrypt the secret key
 	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
@@ -171,17 +173,22 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 	const verified = speakeasy.totp.verify({
 		secret: decryptedSecret,
 		encoding: 'base32',
-		token: token,
-		window: 1
+		token: code,
+		window: 2,
+		step: 30
 	});
 
 	if (verified) 
 	{
-		res.status(200).send('OTP verified');
+		// TODO: GET USER ID FROM EMAIL 
+		// WE NEED THE SECRETE KEY FROM THE ENV VARIABLES 
+		const token = jwt.sign({ user_id: 1 }, secretKey);
+
+		res.status(200).send({ token });
 	} 
 	else 
-	{
-		res.status(401).send('Invalid OTP');
+	{	
+		res.status(500).send('Invalid OTP');
 	}
 });
 
@@ -189,7 +196,7 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 app.post('/api/login', (req, res) => {
 
   	const { email, password } = req.body;
-
+	
 	db.query('SELECT * FROM User WHERE email = ?', [email], (error, results) => 
 	{
 		if (error) 
@@ -216,9 +223,7 @@ app.post('/api/login', (req, res) => {
 					res.status(401).send('Invalid login credentials');
 				} else 
 				{
-					const token = jwt.sign({ user_id: user.user_id }, secretKey);
-
-					res.status(200).send({ token });
+					res.status(200).send();
 				}
 			});
 		}
@@ -358,41 +363,44 @@ app.post("api/transactions", (req, res) => {
 });
 
 // Get balance of account
-app.post("api/balance", (req, res) => {
+app.post("/api/balance", async (req, res) => {
 	
-	const {token} = req.body;
 
-	const decodedToken = jwt.verify(token, secretKey);
+	try {
+		const {token} = req.body;
+
+		const decodedToken = jwt.verify(token, secretKey);
+		
+		const userId = decodedToken.user_id;
+
+		// We must cover the token using JWT and then 
+		// get the user ID
+		const sqlQuery = `
+			SELECT
+				balance
+			FROM
+				Bank_Account
+			WHERE
+				user_id = ?;
+		`
+
+		db.query(sqlQuery, [userId], async (error, results, fields) =>
+		{
+			if (error) 
+			{
+				console.log(error);
+				res.status(401).send("Error retrieving balance for user");
+			} 
+			else 
+			{
+				res.status(200).send({amount:results});
+			}
+		});
+		
+	} catch (error) {
+		res.status(500).send("Error retrieving balance for user");
+	}
 	
-	const userId = decodedToken.user_id;
-	// We must cover the token using JWT and then 
-	// get the user ID
-	const sqlQuery = `
-		SELECT
-			bank_account_id,
-			user_id,
-			bank_name,
-			account_number,
-			account_type,
-			balance
-		FROM
-			Bank_Account
-		WHERE
-			user_id = ?;
-	`
-
-	db.query(sqlQuery, [userId], async (error, results, fields) =>
-	{
-		if (error) 
-		{
-			console.log(error);
-			res.status(500).send("Error retrieving balance for user");
-		} 
-		else 
-		{
-			res.status(200).send({amount:results});
-		}
-	});
 });
 
 app.listen(3001, () => {

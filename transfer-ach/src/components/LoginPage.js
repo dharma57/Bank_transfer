@@ -1,33 +1,27 @@
 import { useNavigate } from 'react-router-dom';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import Button from './Button'
 import InputForm from './InputForm';
 import Header from './Header';
 import { isValidEmail, isPasswordLongEnough, hasPasswordRequiredChars } from '../utils/inputValidation';
 import axios from 'axios';
+import { AuthContext } from '../context/AuthProvider';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const { handleEmailChange, email } = useContext(AuthContext);
   const [password, setPassword] = useState('');
 
   const handleLogin = async (e) =>  {
     e.preventDefault();
 
-    
         try {
             const response_db = await axios.post('http://localhost:3001/api/login', { email: email, password:password});
             axios.post('http://localhost:3001/api/mfa/sendOTP', { email: email});
-            console.log("OUT")
             navigate('/mfa');
           } catch (error) {
             alert("Problem occurred while logging in")
         }
- 
-  };
-
-  const handleEmailChange = (e) => {
-    setEmail(e.target.value);
   };
 
   const handlePasswordChange = (e) => {

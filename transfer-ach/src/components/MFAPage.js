@@ -1,16 +1,27 @@
 import { useNavigate } from 'react-router-dom';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import InputForm from './InputForm';
 import Button from './Button';
 import Header from './Header';
+import axios from 'axios';
+import { AuthContext } from '../context/AuthProvider';
 
 function MFAPage() {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
-
-  const handleMFA = (e) => {
+  const { token, handleTokenChange, email } = useContext(AuthContext);
+  
+  const handleMFA = async (e) => {
     e.preventDefault();
-    navigate('/home');
+    try {
+      const response_db = await axios.post('http://localhost:3001/api/mfa/verifyOTP', { code: code, email:email});
+        handleTokenChange(response_db.data.token)
+        console.log(response_db.data.token)
+        navigate('/home');
+    } catch (error) {
+      alert("Problem occurred with MFA token")
+  }
+    
   };
 
   const handleCodeChange = (e) => {
@@ -37,9 +48,9 @@ function MFAPage() {
             </p>
             <InputForm 
                 type="text" 
-                maxLength="5" 
-                placeholder="5-digit code" 
-                onChange={handleCodeChange}
+                maxLength="6" 
+                placeholder="6-digit code" 
+                onChangeHandler={handleCodeChange}
             />
             <Button 
                 type="submit"

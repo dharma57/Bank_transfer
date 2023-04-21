@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import TransactionTableRow from "./TransactionTableRow";
 
 function TransactionList() {
@@ -42,6 +43,30 @@ function TransactionList() {
         }
     ];
 
+    useEffect(() => {
+        const fetchData = async () => {
+          try {
+            //call transactions;
+           // update transactions
+            console.log("trying to fetch transaction")
+          } catch (error) {
+            console.error('Error fetching data:', error);
+          }
+        };
+    
+        fetchData();
+    
+        const intervalId = setInterval(() => {
+          fetchData();
+        }, 2 * 60 * 1000); // 2 minutes in milliseconds
+    
+        return () => {
+          clearInterval(intervalId);
+        };
+    }, []);
+    
+    // logic will be added to either put + or - in front of the dollor amount 
+    // depending on the direction of the transactions 
     return (
         <div style={styles.transactionContainer}>
             <h2 style={styles.header}>

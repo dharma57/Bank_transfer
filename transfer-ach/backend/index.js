@@ -27,10 +27,7 @@ const jwt = require('jsonwebtoken');
 // Define the encryption key -- store in env
 const MFSEncryptionKey = crypto.randomBytes(32);
 // Generate a random initialization vector (IV)
-const iv = crypto.randomBytes(16); // must store in ENV
-console.log(iv)
-console.log(MFSEncryptionKey)
-
+const iv = crypto.randomBytes(16); // must store in ENV 
 
 //----------- DUMMY TEST 
 const MFASecret = speakeasy.generateSecret({ length: 32 });
@@ -39,7 +36,7 @@ const cipher = crypto.createCipheriv('aes-256-cbc', MFSEncryptionKey, iv);
 
 let encryptedSecretFromDB = cipher.update(MFASecret.base32, 'utf8', 'hex');
 
-encryptedSecretFromDB += cipher.final('hex'); // <- would be queried in the sendOTP
+encryptedSecretFromDB += cipher.final('hex'); // <- would be queried in the sendOTP. this is unique per user 
 
 // Set up email transporter
 const transporter = nodemailer.createTransport({
@@ -96,7 +93,7 @@ app.post('/api/mfa/sendOTP', async (req, res) => {
 	decryptedSecret += decipher.final('utf8');
 
 	const token = speakeasy.totp({ secret: decryptedSecret.base32, encoding: 'base32' });
-	console.log("here")
+
 	// Create email message
 	const message = {
 		from: 'dharmatejak73@gmail.com',
@@ -104,18 +101,20 @@ app.post('/api/mfa/sendOTP', async (req, res) => {
 		subject: 'Your OTP for MFA',
 		text: `Your OTP is ${token}`
 	};
-	console.log("3333")
+
 	// Send email
-	await transporter.sendMail(message, (error, info) => {
-		if (error) {
-				console.log('Failed to send OTP');
-				res.status(500).send('Failed to send OTP');
-		} else {
-				console.log(info);
-				res.status(200)
+	transporter.sendMail(message, (error, info) => {
+		if (error) 
+		{
+			console.log('Failed to send OTP');
+			res.status(500).send('Failed to send OTP');
+		} 
+		else 
+		{
+			console.log(info);
+			res.status(200)
 		}
 	});
-	console.log("432423423here")
   });
   
 
@@ -162,9 +161,12 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 		window: 1
 	});
 
-	if (verified) {
+	if (verified) 
+	{
 		res.status(200).send('OTP verified');
-	} else {
+	} 
+	else 
+	{
 		res.status(401).send('Invalid OTP');
 	}
 });
@@ -173,25 +175,32 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
 
-	db.query('SELECT * FROM User WHERE email = ?', [email], (error, results) => {
-		if (error) {
+	db.query('SELECT * FROM User WHERE email = ?', [email], (error, results) => 
+	{
+		if (error) 
+		{
 			console.log(error);
 			res.status(500).send('Internal server error');
-		} else if (results.length === 0) {
-			console.log("Something");
+		} 
+		else if (results.length === 0) 
+		{
 			res.status(401).send('Invalid login credentials');
-		} else {
+		} 
+		else 
+		{
 			const user = results[0];
-			bcrypt.compare(password, user.password, (error, result) => {
-				if (error) {
-					console.log("Something2");
-					console.log(error);
+
+			bcrypt.compare(password, user.password, (error, result) => 
+			{
+				if (error) 
+				{
 					res.status(500).send('Internal server error');
-				} else if (result === false) {
-					console.log("Something3");
+				}
+				else if (result === false) 
+				{
 					res.status(401).send('Invalid login credentials');
-				} else {
-					console.log("Something4");
+				} else 
+				{
 					const token = jwt.sign({ user_id: user.user_id }, secretKey);
 					res.status(200).send({ token });
 				}
@@ -202,7 +211,7 @@ app.post('/api/login', (req, res) => {
   
 // Transfer money
 app.post("api/transfer", (req, res) => {
-	const {toUsername, fromUsername, amount} = req.body;
+	const {toEmail, fromUsername, amount} = req.body;
 		
 	// Get recieving user bank account
 	var query = "SELECT * FROM Bank_Account WHERE user_id = (SELECT user_id from User WHERE email = ?)";
@@ -280,139 +289,141 @@ app.post("api/transfer", (req, res) => {
 
 // Get all transactions of user
 app.post("api/transactions", (req, res) => {
-	const {username} = req.body;
+	const {token} = req.body;
+
+	// We must cover the token using JWT and then 
+	// get the user ID
+
+	const sqlQuery = `
+		SELECT
+			ACH_Transaction.*,
+			Transaction_Status.status_name,
+			Transaction_Status.description AS status_description,
+			Origin_User.user_id AS origin_user_id,
+			Origin_User.first_name AS origin_first_name,
+			Origin_User.last_name AS origin_last_name,
+			Origin_Account.bank_name AS origin_bank_name,
+			Origin_Account.account_number AS origin_account_number,
+			Destination_User.user_id AS destination_user_id,
+			Destination_User.first_name AS destination_first_name,
+			Destination_User.last_name AS destination_last_name,
+			Destination_Account.bank_name AS destination_bank_name,
+			Destination_Account.account_number AS destination_account_number
+		FROM
+			ACH_Transaction
+			INNER JOIN Transaction_Status ON ACH_Transaction.transaction_status_id = Transaction_Status.transaction_status_id
+			INNER JOIN Bank_Account AS Origin_Account ON ACH_Transaction.origin_bank_account_id = Origin_Account.bank_account_id
+			INNER JOIN Bank_Account AS Destination_Account ON ACH_Transaction.destination_bank_account_id = Destination_Account.bank_account_id
+			INNER JOIN User AS Origin_User ON Origin_Account.user_id = Origin_User.user_id
+			INNER JOIN User AS Dest  ination_User ON Destination_Account.user_id = Destination_User.user_id
+		WHERE
+			Origin_User.user_id = ? OR Destination_User.user_id = ?
+		ORDER BY
+			ACH_Transaction.transaction_date DESC;
+	`
 	
-	// 	SELECT SubT.origin_email, User.email AS destination_email, SubT.amount, 
-	// 	SubT.transaction_date, SubT.transaction_type
-	// 
-	// 	FROM User, 
-	// 
-	// 	(
-	// 		SELECT User.email AS origin_email, U
-	// 		T.destination_bank_account_id AS destination_bank_account_id, 
-	// 		UT.amount AS amount, UT.transaction_date AS transaction_date, 
-	// 		UT.transaction_type AS transaction_type
-	// 
-	// 		From User, 
-	// 
-	// 		(
-	// 			SELECT origin_bank_account_id, destinatio_bank_account_id, amount, 
-	// 			transaction_date, transaction_type
-	// 
-	// 			FROM ACH_Transaction
-	// 
-	// 			WHERE origin_bank_account_id = 
-	// 				(SELECT user_id FROM User WHERE email = ?)
-	// 
-	// 			OR 
-	// 			destination_bank_account_id = 
-	// 				(SELECT user_id FROM User WHERE email = ?)
-	// 		) UT
-	// 
-	// 		WHERE
-	// 		User.user_id = UT.origin_bank_account_id
-	// 	) SubT
-	// 
-	// 	WHERE
-	// 	SubT.destination_bank_account_id = User.id
-	//	
-	// 	FOR JSON AUTO
-	
-	// Get transactions
-	var query = "SELECT SubT.origin_email, User.email AS destination_email, SubT.amount, SubT.transaction_date, SubT.transaction_type FROM User, (SELECT User.email AS origin_email, UT.destination_bank_account_id AS destination_bank_account_id, UT.amount AS amount, UT.transaction_date AS transaction_date, UT.transaction_type AS transaction_type From User, (SELECT origin_bank_account_id, destinatio_bank_account_id, amount, transaction_date, transaction_type FROM ACH_Transaction WHERE origin_bank_account_id =  (SELECT user_id FROM User WHERE email = ?) OR destination_bank_account_id = (SELECT user_id FROM User WHERE email = ?)) UT WHERE User.user_id = UT.origin_bank_account_id ) SubT WHERE SubT.destination_bank_account_id = User.id FOR JSON AUTO";
-	db.query(query, [username, username], async (error, results, fields) => {
-		if (error) {
+	db.query(query, [token.user_id, token.user_id], async (error, results) => {
+		if (error) 
+		{
 			console.log(error);
-			res.status(500).send("Error retrieving transactions for user");
+			res.status(500).json("Error retrieving transactions for user");
 		} 
 		else 
 		{
-			
-			// Get users
-			query = "SELECT user_id, email FROM USER";
-			db.query(query, async (error, results2, fields) => {
-				if (error) {
-					console.log(error);
-					res.status(500).send("Error retrieving transactions for user");
-				} 
-				else {
-					res.status(200).send(results);
-				}
-			});
+			res.status(200).json({transactions:results})
 		}
 	});
 });
 
 // Get balance of account
 app.post("api/balance", (req, res) => {
-	const {username} = req.body;
-	db.query("SELECT balance FROM Bank_Account WHERE user_id = (SELECT user_id FROM User WHERE email = ?);", [username], async (error, results, fields) => {
-		if (error) {
+	const {token} = req.body;
+
+	// We must cover the token using JWT and then 
+	// get the user ID
+	const sqlQuery = `
+		SELECT
+			bank_account_id,
+			user_id,
+			bank_name,
+			account_number,
+			account_type,
+			balance
+		FROM
+			Bank_Account
+		WHERE
+			user_id = ?;
+	`
+
+	db.query(sqlQuery, [token.user_id], async (error, results, fields) =>
+	{
+		if (error) 
+		{
 			console.log(error);
 			res.status(500).send("Error retrieving balance for user");
 		} 
-		else {
-			res.status(200).send(results);
+		else 
+		{
+			res.status(200).send({amount:results});
 		}
+	});
 });
 
-// MFA endpoint
 
-// Set up email transporter
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'dharmatejak73@gmail.com',
-    pass: 'Boogeyman@1997'
-  }
-});
-});
+
 
 // Generate and send OTP to user's email
 app.post('/api/mfa/sendOTP', (req, res) => {
-  const { email } = req.body;
+	const { email } = req.body;
 
-  // Generate secret key and OTP
-  const secret = speakeasy.generateSecret({ length: 20 });
-  const token = speakeasy.totp({ secret: secret.base32, encoding: 'base32' });
+	// Generate secret key and OTP
+	const secret = speakeasy.generateSecret({ length: 20 });
+	const token = speakeasy.totp({ secret: secret.base32, encoding: 'base32' });
 
-  // Create email message
-  const message = {
-    from: 'dharmatejak73@gmail.com',
-    to: 'tejanaidu527@gmail.com',
-    subject: 'Your OTP for MFA',
-    text: `Your OTP is ${token}`
-  };
+	// Create email message
+	const message = {
+		from: 'dharmatejak73@gmail.com',
+		to: 'tejanaidu527@gmail.com',
+		subject: 'Your OTP for MFA',
+		text: `Your OTP is ${token}`
+	};
 
-  // Send email
-  transporter.sendMail(message, (error, info) => {
-    if (error) {
-      console.log(error);
-      res.status(500).send('Failed to send OTP');
-    } else {
-      console.log(info);
-      res.status(200).send({ secret: secret.base32 });
-    }
-  });
+	// Send email
+	transporter.sendMail(message, (error, info) => 
+	{
+		if (error) 
+		{
+			console.log(error);
+			res.status(500).send('Failed to send OTP');
+		} 
+		else 
+		{
+			console.log(info);
+			res.status(200).send({ secret: secret.base32 });
+		}
+	});
 });
 
 // Verify OTP entered by user
 app.post('/api/mfa/verifyOTP', (req, res) => {
-  const { secret, token } = req.body;
+	const { secret, token } = req.body;
 
-  // Verify OTP
-  const verified = speakeasy.totp.verify({
-    secret: secret,
-    encoding: 'base32',
-    token: token,
-    window: 1
-  });
+	// Verify OTP
+	const verified = speakeasy.totp.verify({
+		secret: secret,
+		encoding: 'base32',
+		token: token,
+		window: 1
+	});
 
-  if (verified) {
-    res.status(200).send('OTP verified');
-  } else {
-    res.status(401).send('Invalid OTP');
-  }
+	if (verified) 
+	{
+		res.status(200).send('OTP verified');
+	} 
+	else 
+	{
+		res.status(401).send('Invalid OTP');
+	}
 });
 
 app.listen(3001, () => {

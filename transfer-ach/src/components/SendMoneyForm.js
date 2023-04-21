@@ -5,7 +5,7 @@ import InputForm from './InputForm';
 function SendMoneyForm(props) {
 
     const [amount, setAmount] = useState('');
-    const [receiverUsername, setReceiverUsername] = useState('');
+    const [receiverEmail, setReceiverEmail] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -14,10 +14,10 @@ function SendMoneyForm(props) {
         // than what is in the account. 
 
         const amount = e.target.amount.value;
-        const receiverUsername = e.target.receiverUsername.value;
+        const receiverEmail = e.target.receiverUsername.value;
 
         console.log("Amount:", amount);
-        console.log("Receiver Username:", receiverUsername);
+        console.log("Receiver Email:", receiverEmail);
 
         // Clear the form fields after successful submission
         e.target.reset();
@@ -29,9 +29,9 @@ function SendMoneyForm(props) {
         setAmount(e.target.value);
     };
 
-    const handleReceiverUsernameChange = (e) => {
+    const handleReceiverEmailChange = (e) => {
         // 
-        setReceiverUsername(e.target.value);
+        setReceiverEmail(e.target.value);
     };
 
     return (
@@ -54,8 +54,8 @@ function SendMoneyForm(props) {
                 <InputForm 
                     type="text" 
                     name="receiverUsername" 
-                    onChange={handleReceiverUsernameChange} 
-                    placeholder="Receiver's Username" 
+                    onChange={handleReceiverEmailChange} 
+                    placeholder="Receiver's Email" 
                     required 
                     style={{marginTop:20}}
                 />

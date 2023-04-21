@@ -24,9 +24,33 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const secretKey = crypto.randomBytes(64).toString('hex');
 const jwt = require('jsonwebtoken');
+// Define the encryption key -- store in env
+const MFSEncryptionKey = crypto.randomBytes(32);
+// Generate a random initialization vector (IV)
+const iv = crypto.randomBytes(16); // must store in ENV
 
-// Schedule a task to run every minute
-cron.schedule('* * * * *', () => {
+
+//----------- DUMMY TEST 
+const MFASecret = speakeasy.generateSecret({ length: 32 });
+
+const cipher = crypto.createCipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+
+let encryptedSecretFromDB = cipher.update(MFASecret.base32, 'utf8', 'hex');
+
+encryptedSecretFromDB += cipher.final('hex'); // <- would be queried in the sendOTP
+
+// Set up email transporter
+const transporter = nodemailer.createTransport({
+	service: 'gmail',
+	auth: {
+	  user: 'dharmatejak73@gmail.com',
+	  pass: 'mbbqyqwjjswydmsd'
+	}
+  });
+  
+
+// Maybe create a scheduler to rotate the keys for MFA and JWT for users
+/* cron.schedule('* * * * *', () => {
 	// Log the start of the cleanup task
 	console.log('Running cleanup task...');
   
@@ -53,7 +77,44 @@ cron.schedule('* * * * *', () => {
 			console.log(`Deleted ${result.affectedRows} expired JWT records.`);
 		}
 	});
- });
+ }); */
+
+ // Generate and send OTP to user's email
+app.post('/api/mfa/sendOTP', async (req, res) => {
+	const { email } = req.body;
+	console.log("2222")
+	// Generate secret key and OTP
+	// Sercret should be encrypted and store in DB and assoicted with user. shouldnt have to 
+
+	// Decrypt the secret key
+	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+
+	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
+
+	decryptedSecret += decipher.final('utf8');
+
+	const token = speakeasy.totp({ secret: decryptedSecret.base32, encoding: 'base32' });
+	console.log("here")
+	// Create email message
+	const message = {
+		from: 'dharmatejak73@gmail.com',
+		to: 'dumasjean94@outlook.com',
+		subject: 'Your OTP for MFA',
+		text: `Your OTP is ${token}`
+	};
+	console.log("3333")
+	// Send email
+	await transporter.sendMail(message, (error, info) => {
+		if (error) {
+				console.log('Failed to send OTP');
+				res.status(500).send('Failed to send OTP');
+		} else {
+				console.log(info);
+				res.status(200)
+		}
+	});
+	console.log("432423423here")
+  });
   
 
 // registration end point
@@ -61,6 +122,18 @@ app.post("/api/register", async (req, res) => {
     const { first_name, last_name, email, password, phone_number, address, created_at, updated_at } = req.body;
     const user_id = Math.floor(Math.random() * 1000000000);
     const hashedPassword = await bcrypt.hash(password, 10); // Hash the password with salt rounds of 10
+
+	// Create MFA Session key to insert into the table 
+	const MFASecret = speakeasy.generateSecret({ length: 32 });
+
+	const cipher = crypto.createCipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+
+	let encryptedSecret = cipher.update(MFASecret.base32, 'utf8', 'hex');
+	
+	encryptedSecret += cipher.final('hex');
+
+	// store encryptedSecret in DB
+
     const sqlInsert = "INSERT INTO achdatabase.User(user_id, first_name, last_name, email, password, phone_number, address, created_at, updated_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())";
     db.query(sqlInsert, [user_id, first_name, last_name, email, hashedPassword, phone_number, address, created_at, updated_at], (error, result) => {
       if (error) {
@@ -69,84 +142,54 @@ app.post("/api/register", async (req, res) => {
     })
 });
 
-app.post("/api/mfa_gen", async (req, res) => {
-    const { email } = req.body;
-	const code = Math.floor(Math.random() * (99999 - 10000 + 1) + 10000);
-	
-	const sqlInsert = `
-    INSERT INTO MFA_Authentication (user_id, code, expire_time)
-        SELECT user_id, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE)
-        FROM User WHERE email = ?;
-	`;
+// Verify OTP entered by user
+app.post('/api/mfa/verifyOTP', (req, res) => {
+	const { token } = req.body;
 
-    db.query(sqlInsert, [code,email], (error, result) => {
-		if (error) {
-			console.log('Error:', error);
-			res.status(500).json({ error: 'Error executing the query' });
-		}
-		else
-		{	console.log(result)
-			if (result.affectedRows == 1)
-			{
-				// Attempt to send email or sms
-				res.status(200).json({
-					message: 'MFA code generated and stored',
-					email: email,
-					code: code,
-				});
-			}
-			else 
-			{
-				res.status(500).json({ error: 'Error creating MFA' });
-			}
-		}
-    })
-});
+	// Decrypt the secret key
+	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
 
-app.post("/api/mfa_verify", async (req, res) => {
-    const { code, email } = req.body;
-    const sqlDeleteMfaTuple = `
-  		DELETE FROM MFA_Authenitication
-  		WHERE user_id = (SELECT user_id FROM User WHERE email = ?) AND 
-		code = ? AND expire_time > NOW();`;
+	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
 
-	db.query(sqlDeleteMfaTuple, [email, code], (error, result) => {
-		if (error) {
-			res.status(500).json({ error: 'Error executing the query' });
-		} else {
-			if ( result.affectedRows == 1)
-			{
-				res.status(200).json({ message: 'Success' });
-			}
-			else
-			{
-				res.status(500).json({ error: 'Incorrect Code entered or time expired' });
-			}
-		}
+	decryptedSecret += decipher.final('utf8');
+	// Verify OTP
+	const verified = speakeasy.totp.verify({
+		secret: decryptedSecret,
+		encoding: 'base32',
+		token: token,
+		window: 1
 	});
+
+	if (verified) {
+		res.status(200).send('OTP verified');
+	} else {
+		res.status(401).send('Invalid OTP');
+	}
 });
-
-
 
 // Login endpoint
 app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
 
-	db.query('SELECT * FROM User WHERE email = ?', [username], (error, results) => {
+	db.query('SELECT * FROM User WHERE email = ?', [email], (error, results) => {
 		if (error) {
 			console.log(error);
 			res.status(500).send('Internal server error');
 		} else if (results.length === 0) {
+			console.log("Something");
 			res.status(401).send('Invalid login credentials');
 		} else {
 			const user = results[0];
 			bcrypt.compare(password, user.password, (error, result) => {
 				if (error) {
+					console.log("Something2");
 					console.log(error);
 					res.status(500).send('Internal server error');
 				} else if (result === false) {
+					console.log("Something3");
 					res.status(401).send('Invalid login credentials');
 				} else {
+					console.log("Something4");
 					const token = jwt.sign({ user_id: user.user_id }, secretKey);
 					res.status(200).send({ token });
 				}

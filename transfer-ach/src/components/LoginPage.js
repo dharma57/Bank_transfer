@@ -16,7 +16,9 @@ function LoginPage() {
 
     
         try {
-            const response_db = await axios.post('http://localhost:3001/api/mfa_gen', { email: email });
+            const response_db = await axios.post('http://localhost:3001/api/login', { email: email, password:password});
+            axios.post('http://localhost:3001/api/mfa/sendOTP', { email: email});
+            console.log("OUT")
             navigate('/mfa');
           } catch (error) {
             alert("Problem occurred while logging in")

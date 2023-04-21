@@ -81,7 +81,7 @@ const transporter = nodemailer.createTransport({
  // Generate and send OTP to user's email
 app.post('/api/mfa/sendOTP', async (req, res) => {
 	const { email } = req.body;
-	console.log("2222")
+
 	// Generate secret key and OTP
 	// Sercret should be encrypted and store in DB and assoicted with user. shouldnt have to 
 
@@ -117,10 +117,11 @@ app.post('/api/mfa/sendOTP', async (req, res) => {
 	});
   });
   
-
 // registration end point
 app.post("/api/register", async (req, res) => {
+
     const { first_name, last_name, email, password, phone_number, address } = req.body;
+
 	const hashedPassword = await bcrypt.hash(password, 10); // Hash the password with salt rounds of 10
 
 	// Create MFA Session key to insert into the table
@@ -165,6 +166,7 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
 
 	decryptedSecret += decipher.final('utf8');
+
 	// Verify OTP
 	const verified = speakeasy.totp.verify({
 		secret: decryptedSecret,
@@ -185,7 +187,8 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 
 // Login endpoint
 app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
+
+  	const { email, password } = req.body;
 
 	db.query('SELECT * FROM User WHERE email = ?', [email], (error, results) => 
 	{
@@ -214,6 +217,7 @@ app.post('/api/login', (req, res) => {
 				} else 
 				{
 					const token = jwt.sign({ user_id: user.user_id }, secretKey);
+
 					res.status(200).send({ token });
 				}
 			});
@@ -229,6 +233,7 @@ app.post("api/transfer", async (req, res) => {
 	try {
 		// Verify the JWT token and fetch the user_id of the sender
 		const decodedToken = jwt.verify(token, secretKey);
+
 		const senderUserId = decodedToken.user_id;
 
 		// Check the balance of the sender and get their bank account ID
@@ -339,7 +344,7 @@ app.post("api/transactions", (req, res) => {
 		ACH_Transaction.transaction_date DESC;
 	`
 	
-	db.query(query, [userId, userId], async (error, results) => {
+	db.query(sqlQuery, [userId, userId], async (error, results) => {
 		if (error) 
 		{
 			console.log(error);
@@ -354,6 +359,7 @@ app.post("api/transactions", (req, res) => {
 
 // Get balance of account
 app.post("api/balance", (req, res) => {
+	
 	const {token} = req.body;
 
 	const decodedToken = jwt.verify(token, secretKey);
@@ -402,7 +408,7 @@ app.post('/api/mfa/sendOTP', (req, res) => {
 	// Create email message
 	const message = {
 		from: 'dharmatejak73@gmail.com',
-		to: 'tejanaidu527@gmail.com', // replace with email
+		to: email, 
 		subject: 'Your OTP for MFA',
 		text: `Your OTP is ${token}`
 	};
@@ -425,7 +431,7 @@ app.post('/api/mfa/sendOTP', (req, res) => {
 
 // Verify OTP entered by user
 app.post('/api/mfa/verifyOTP', (req, res) => {
-	
+
 	const { secret, token } = req.body;
 
 	// Verify OTP

@@ -1,26 +1,35 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import Button from './Button';
 import InputForm from './InputForm';
+import { AuthContext } from "../context/AuthProvider";
+import axios from 'axios';
 
 function SendMoneyForm(props) {
 
     const [amount, setAmount] = useState('');
+    const {token} = useContext(AuthContext);
     const [receiverEmail, setReceiverEmail] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Add logic to send money, such as making an API call
-        // We should verify that the amount being sent is not more 
-        // than what is in the account. 
+        
+        if( amount > 0)
+        {
+            try {
 
-        const amount = e.target.amount.value;
-        const receiverEmail = e.target.receiverUsername.value;
+                await axios.post('http://localhost:3001/api/transfer', {token: token, amount: amount, toEmail :receiverEmail });
+        
+            } catch (error) {
+                    console.log(error)
+                    alert("Error making the transaction")
+            }
 
-        console.log("Amount:", amount);
-        console.log("Receiver Email:", receiverEmail);
+            console.log("Amount:", amount);
+            console.log("Receiver Email:", receiverEmail);
 
-        // Clear the form fields after successful submission
-        e.target.reset();
+            e.target.reset();
+        }
+
     };
 
     // Update the state variable  
@@ -46,7 +55,7 @@ function SendMoneyForm(props) {
                     type="number" 
                     min="0" 
                     name="amount" 
-                    onChange={handleAmountChange} 
+                    onChangeHandler={handleAmountChange} 
                     placeholder="Amount" 
                     required 
                     style = {{marginTop: 15}}
@@ -54,7 +63,7 @@ function SendMoneyForm(props) {
                 <InputForm 
                     type="text" 
                     name="receiverUsername" 
-                    onChange={handleReceiverEmailChange} 
+                    onChangeHandler={handleReceiverEmailChange} 
                     placeholder="Receiver's Email" 
                     required 
                     style={{marginTop:20}}

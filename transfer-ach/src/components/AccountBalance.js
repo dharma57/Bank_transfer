@@ -19,10 +19,16 @@ function AccountBalance() {
           // update transactions
 
           const response_db = await axios.post('http://localhost:3001/api/balance', {token: token});
-          setBalance(response_db.data.amount[0].balance)
+          try {
+            setBalance(response_db.data.amount[0].balance)
+          } catch (error) {
+            setBalance(0)
+          }          
+          
         } catch (error) {
-          navigate('/');
-          console.error('Error fetching data:', error);
+            alert("User Session has expired")
+            navigate('/');
+            console.error('Error fetching data:', error);
         }
       };
   

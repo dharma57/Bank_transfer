@@ -14,7 +14,7 @@ function MFAPage() {
   const handleMFA = async (e) => {
     e.preventDefault();
     try {
-      const response_db = await axios.post('http://localhost:3001/api/mfa/verifyOTP', { code: code, email:email});
+        const response_db = await axios.post('http://localhost:3001/api/mfa/verifyOTP', { code: code, email:email});
         handleTokenChange(response_db.data.token)
         console.log(response_db.data.token)
         navigate('/home');
@@ -28,9 +28,13 @@ function MFAPage() {
     setCode(e.target.value);
   };
 
+  const handleLogout = () => {
+    navigate('/');
+  };
+
   return (
     <div style={styles.MFAPageContainer}>
-        <Header buttonTitle='cancel' buttonShow={true}/>
+        <Header buttonTitle='cancel' buttonShow={true} onClick={handleLogout}/>
         <div style={styles.formContainer}>
             <form 
             onSubmit={handleMFA} 

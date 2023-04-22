@@ -1,17 +1,15 @@
 
-import React from 'react';
+import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TransactionList from './TransactionList';
 import AccountBalance from './AccountBalance';
 import SendMoneyForm from './SendMoneyForm';
 import Header from './Header';
+import { AuthContext } from '../context/AuthProvider';
 
 function HomePage() {
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-      navigate('/');
-    };
+  const { handleLogout } = useContext(AuthContext);
   
   return (
     <div style={styles.homePageContainer}>

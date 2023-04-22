@@ -1,3 +1,4 @@
+
 const express = require("express");
 const app=express();
 const bodyParser=require("body-parser")
@@ -5,14 +6,14 @@ const cors = require("cors");
 const mysql=require("mysql2")
 const speakeasy = require('speakeasy');
 const nodemailer = require('nodemailer');
-const cron = require('node-cron');
+require('dotenv').config();
 
-// Db connection to AWS
+// DB Endpoint Access 
 const db=mysql.createPool({
-    host: "ach-database.cpza8rgbmeji.us-east-2.rds.amazonaws.com",
-    user: "admin",
-    password: "Data&$eP4s3",
-    database:"achdatabase"
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE
 });
 
 app.use(cors());
@@ -20,119 +21,75 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const secretKey = crypto.randomBytes(64).toString('hex');
-const jwt = require('jsonwebtoken');
-// Define the encryption key -- store in env
-const MFSEncryptionKey = crypto.randomBytes(32);
-// Generate a random initialization vector (IV)
-const iv = crypto.randomBytes(16); // must store in ENV 
+const secretKeyJWT =  process.env.JWT_SECRET_KEY;
+const secretKeyMFA = Buffer.from(process.env.MFA_SECRET_KEY, 'hex');
+const iv = Buffer.from(process.env.IV, 'hex');
 
-//----------- DUMMY TEST 
-const MFASecret = speakeasy.generateSecret({ length: 32 });
-
-const cipher = crypto.createCipheriv('aes-256-cbc', MFSEncryptionKey, iv);
-
-let encryptedSecretFromDB = cipher.update(MFASecret.base32, 'utf8', 'hex');
-
-encryptedSecretFromDB += cipher.final('hex'); // <- would be queried in the sendOTP. this is unique per user 
-
-// Set up email transporter
+// Create the Email trainsporter 
 const transporter = nodemailer.createTransport({
 	service: 'gmail',
 	auth: {
 	  user: 'dharmatejak73@gmail.com',
 	  pass: 'mbbqyqwjjswydmsd'
 	}
-  });
+});
   
-
-// Maybe create a scheduler to rotate the keys for MFA and JWT for users
-/* cron.schedule('* * * * *', () => {
-	// Log the start of the cleanup task
-	('Running cleanup task...');
-  
-	// SQL query to delete expired records from the MFA_Authentication table
-	const sqlMFACleanup = 'DELETE FROM MFA_Authentication WHERE expire_time < CURRENT_TIMESTAMP;';
-  
-	// SQL query to delete expired records from the JWT_Sessions table
-	const sqlJWTCleanup = 'DELETE FROM JWT_Sessions WHERE expire_time < CURRENT_TIMESTAMP;';
-  
-	// Execute the SQL query to delete expired records from the MFA_Authentication table
-	db.query(sqlMFACleanup, (error, result) => {
-		if (error) {
-			console.error('Error executing the MFA cleanup query:', error);
-		} else {
-			(`Deleted ${result.affectedRows} expired MFA records.`);
-		}
-	});
-  
-	// Execute the SQL query to delete expired records from the JWT_Sessions table
-	db.query(sqlJWTCleanup, (error, result) => {
-		if (error) {
-			console.error('Error executing the JWT cleanup query:', error);
-		} else {
-			(`Deleted ${result.affectedRows} expired JWT records.`);
-		}
-	});
- }); */
   
 // registration end point
 app.post("/api/register", async (req, res) => {
 
     const { first_name, last_name, email, password, phone_number, address } = req.body;
-
+	
 	const hashedPassword = await bcrypt.hash(password, 10); // Hash the password with salt rounds of 10
 
 	// Create MFA Session key to insert into the table
 	const MFASecret = speakeasy.generateSecret({ length: 32 });
 
-	const cipher = crypto.createCipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+	const cipher = crypto.createCipheriv('aes-256-cbc', secretKeyMFA, iv);
 
 	let encryptedSecret = cipher.update(MFASecret.base32, 'utf8', 'hex');
 
 	encryptedSecret += cipher.final('hex');
-
-	// Store encryptedSecret in DB
-	// We should manage the MFA encrypted secret storage in the future
-
 	const sqlInsert = `
-		INSERT INTO User(first_name, last_name, email, password, phone_number, address, created_at, updated_at)
-		VALUES (?,?,?,?,?,?,NOW(),NOW())`;
+		INSERT INTO User(first_name, last_name, email, password, phone_number, address, mfa_key)
+		VALUES (?,?,?,?,?,?,?);`;
 
-	db.query(sqlInsert, [first_name, last_name, email, hashedPassword, phone_number, address], (error, result) => {
+	db.query(sqlInsert, [first_name, last_name, email, hashedPassword, phone_number, address, encryptedSecret], (error, result) => {
 		if (error) {
 			res.status(500).send('Internal server error');
 		}
-		else if (result.affectedRows == 1)
+		else if (result.affectedRows == 1) 
 		{
-			res.status(200)
+			res.status(200).send('SUCCESS')
 		}
 		else
 		{
 			res.status(500).send('User could not be inserted into database')
 		}
 	});
+	console.log("EXIT")
 
 });
 
- // Generate and send OTP to user's email
+ // Generate and send OTP to user's email WORKING
  app.post('/api/mfa/sendOTP', async (req, res) => {
 	const { email } = req.body;
 
-	// Generate secret key and OTP
-	// Sercret should be encrypted and store in DB and assoicted with user. shouldnt have to 
-	// Decrypt the secret key
+	const decipher = crypto.createDecipheriv('aes-256-cbc', secretKeyMFA, iv);
 
-	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+	const result = await getMFACode(email)
 
-	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
+	const encryptedSecret = result[0].mfa_key
+
+	let decryptedSecret = decipher.update(encryptedSecret, 'hex', 'utf8');
 
 	decryptedSecret += decipher.final('utf8');
 
 	const token = speakeasy.totp({ secret: decryptedSecret, encoding: 'base32',step: 30 });
-	(token.length)
+
 	// Create email message
 	const message = {
 		from: 'dharmatejak73@gmail.com',
@@ -156,16 +113,39 @@ app.post("/api/register", async (req, res) => {
 	});
 });
 
-// Verify OTP entered by user
-app.post('/api/mfa/verifyOTP', (req, res) => {
+function getMFACode(email) {
+
+	return new Promise((resolve, reject) => {
+		const query = `
+			SELECT mfa_key,user_id
+			FROM User
+			WHERE email = ?;
+		`;
+
+	  db.query(query, [email], (err, result) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(result);
+			}
+	  });
+	});
+  }
+
+// Verify OTP entered by user - WORKING
+app.post('/api/mfa/verifyOTP', async (req, res) => {
 	const { code, email } = req.body;
-	
-	(code.length)
 
 	// Decrypt the secret key
-	const decipher = crypto.createDecipheriv('aes-256-cbc', MFSEncryptionKey, iv);
+	const decipher = crypto.createDecipheriv('aes-256-cbc', secretKeyMFA, iv);
 
-	let decryptedSecret = decipher.update(encryptedSecretFromDB, 'hex', 'utf8');
+	const result = await getMFACode(email)
+
+	const encryptedSecret = result[0].mfa_key
+
+	const user_id = result[0].user_id
+
+	let decryptedSecret = decipher.update(encryptedSecret, 'hex', 'utf8');
 
 	decryptedSecret += decipher.final('utf8');
 
@@ -180,9 +160,7 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 
 	if (verified) 
 	{
-		// TODO: GET USER ID FROM EMAIL 
-		// WE NEED THE SECRETE KEY FROM THE ENV VARIABLES 
-		const token = jwt.sign({ user_id: 1 }, secretKey);
+		const token = jwt.sign({ user_id: user_id }, secretKeyJWT);
 
 		res.status(200).send({ token });
 	} 
@@ -192,7 +170,7 @@ app.post('/api/mfa/verifyOTP', (req, res) => {
 	}
 });
 
-// Login endpoint
+
 app.post('/api/login', (req, res) => {
 
   	const { email, password } = req.body;
@@ -229,35 +207,30 @@ app.post('/api/login', (req, res) => {
 		}
 	});
 });
-  
-// Transfer money
-app.post("api/transfer", async (req, res) => {
 
-	const { token, toEmail, amount } = req.body;
 
-	try {
-		// Verify the JWT token and fetch the user_id of the sender
-		const decodedToken = jwt.verify(token, secretKey);
-
-		const senderUserId = decodedToken.user_id;
-
-		// Check the balance of the sender and get their bank account ID
+function getBankInfo(user_id) {
+	console.log(user_id)
+	return new Promise((resolve, reject) => {
 		const senderQuery = `
-			SELECT bank_account_id, balance
-			FROM Bank_Account
-			WHERE user_id = ?;
+		SELECT bank_account_id, balance
+		FROM Bank_Account
+		WHERE user_id = ?;
 		`;
 
-		const [senderResult] = await db.query(senderQuery, [senderUserId]);
+	  db.query(senderQuery, [user_id], (err, result) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(result);
+			}
+	  });
+	});
+  }
 
-		if (!senderResult || senderResult.balance < amount) 
-		{
-			return res.status(400).json({ error: 'Insufficient balance' });
-		}
-
-		const senderBankAccountId = senderResult.bank_account_id;
-
-		// Verify that the receiving person has a bank account and get their bank account ID
+function getBankInfoByEmail(email) {
+	console.log(email)
+	return new Promise((resolve, reject) => {
 		const receiverQuery = `
 			SELECT bank_account_id
 			FROM Bank_Account
@@ -265,56 +238,129 @@ app.post("api/transfer", async (req, res) => {
 			WHERE User.email = ?;
 		`;
 
-		const [receiverResult] = await db.query(receiverQuery, [toEmail]);
+		db.query(receiverQuery, [email], (err, result) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(result);
+			}
+		});
+	});
+}
 
-		if (!receiverResult) 
-		{
-			return res.status(400).json({ error: 'Receiver does not have a bank account' });
-		}
-
-		const receiverBankAccountId = receiverResult.bank_account_id;
-
-		// Insert the transaction into the ACH_Transaction table
+function createTransaction(senderBankAccountId,receiverBankAccountId,amount) {
+	return new Promise((resolve, reject) => {
+		
 		const insertTransactionQuery = `
 			INSERT INTO ACH_Transaction (
 				origin_bank_account_id,
 				destination_bank_account_id,
-				amount,
-				transaction_type,
-				transaction_status_id) 
-			VALUES (?, ?, ?, ?, ?);
+				amount) 
+			VALUES (?, ?, ?);
 		`;
 
-		// If this fails then a error will eccur and the catch will be called
-		db.query(insertTransactionQuery, [
-			senderBankAccountId,
-			receiverBankAccountId,
-			amount,
-			'Debit',
-			0, // Replace with the appropriate maybe remove this
-		]);
+		db.query(insertTransactionQuery, [senderBankAccountId,receiverBankAccountId,amount], (err, result) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(result.affectedRows);
+			}
+		});
+	});
+}
 
-		// Update the balances of both the sender and the receiver
+
+function modifySenderBalance(amount,senderBankAccountId) {
+	return new Promise((resolve, reject) => {
+		
 		const updateSenderBalanceQuery = `
 			UPDATE Bank_Account
 			SET balance = balance - ?
 			WHERE bank_account_id = ?;
 		`;
 
-		db.query(updateSenderBalanceQuery, [amount, senderBankAccountId]);
+		db.query(updateSenderBalanceQuery, [amount,senderBankAccountId], (err, result) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(result.affectedRows);
+			}
+		});
+	});
+}
 
+  function modifyReceiverBalance(amount,receiverBankAccountId) {
+	return new Promise((resolve, reject) => {
+		
 		const updateReceiverBalanceQuery = `
 			UPDATE Bank_Account
 			SET balance = balance + ?
 			WHERE bank_account_id = ?;
 		`;
 
-		db.query(updateReceiverBalanceQuery, [amount, receiverBankAccountId]);
+		db.query(updateReceiverBalanceQuery, [amount,receiverBankAccountId], (err, result) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(result.affectedRows);
+			}
+		});
+	});
+  }
+  
+  
+// Transfer money
+app.post("/api/transfer", async (req, res) => {
 
+	const { token, toEmail, amount } = req.body;
+
+	try {
+
+		// Verify the JWT token and fetch the user_id of the sender
+		const decodedToken = jwt.verify(token, secretKeyJWT);
+
+		const senderUserId = decodedToken.user_id;
+
+		// Check the balance of the sender and get their bank account ID
+		senderResult = await getBankInfo(senderUserId)
+	
+		if (!senderResult || senderResult.balance < amount || amount < 0) 
+		{
+			console.log("step 1")
+			return res.status(400).json({ error: 'Insufficient balance' });
+		}
+
+		const senderBankAccountId = senderResult[0].bank_account_id;
+
+		console.log(senderResult[0])
+
+		const receiverResult = await getBankInfoByEmail(toEmail)
+
+		console.log(receiverResult)
+		console.log("NONE")
+
+		if (!receiverResult) 
+		{
+			console.log("step 2")
+			return res.status(400).json({ error: 'Receiver does not have a bank account' });
+		}
+
+		const receiverBankAccountId = receiverResult[0].bank_account_id;
+
+		await createTransaction(senderBankAccountId,receiverBankAccountId,amount)
+
+		// Update the balances of both the sender and the receiver
+		await modifySenderBalance(amount,senderBankAccountId)
+
+		await modifyReceiverBalance(amount,receiverBankAccountId)
+	
 		res.status(200).json({ success: 'Transaction completed' });
+
+		console.log("DONE") 
 	} 
 	catch (error) 
 	{
+		console.log("ERRRR")
 		console.log(error);
 		res.status(500).json({ error: 'An error occurred while processing the transaction' });
 	}
@@ -322,21 +368,21 @@ app.post("api/transfer", async (req, res) => {
 });
 
 // Get all transactions of user
-app.post("api/transactions", (req, res) => {
+app.post("/api/transactions", (req, res) => {
 	const {token} = req.body;
 
-	const decodedToken = jwt.verify(token, secretKey);
+	const decodedToken = jwt.verify(token, secretKeyJWT);
 	
 	const userId = decodedToken.user_id;
 
 	const sqlQuery = `
 	SELECT
-		ACH_Transaction.amount,
+		ACH_Transaction.amount AS amount,
 		Origin_User.first_name AS origin_first_name,
 		Origin_User.last_name AS origin_last_name,
 		Destination_User.first_name AS destination_first_name,
 		Destination_User.last_name AS destination_last_name,
-		IF(Origin_User.user_id = ?, 'From', 'To') AS direction
+		IF(Origin_User.user_id = ?, 0, 1) AS direction
 	FROM
 		ACH_Transaction
 		INNER JOIN Bank_Account AS Origin_Account ON ACH_Transaction.origin_bank_account_id = Origin_Account.bank_account_id
@@ -349,7 +395,7 @@ app.post("api/transactions", (req, res) => {
 		ACH_Transaction.transaction_date DESC;
 	`
 	
-	db.query(sqlQuery, [userId, userId], async (error, results) => {
+	db.query(sqlQuery, [userId, userId,userId], async (error, results) => {
 		if (error) 
 		{
 			console.log(error);
@@ -369,7 +415,7 @@ app.post("/api/balance", async (req, res) => {
 	try {
 		const {token} = req.body;
 
-		const decodedToken = jwt.verify(token, secretKey);
+		const decodedToken = jwt.verify(token, secretKeyJWT);
 		
 		const userId = decodedToken.user_id;
 
@@ -384,7 +430,7 @@ app.post("/api/balance", async (req, res) => {
 				user_id = ?;
 		`
 
-		db.query(sqlQuery, [userId], async (error, results, fields) =>
+		db.query(sqlQuery, [userId], async (error, results) =>
 		{
 			if (error) 
 			{

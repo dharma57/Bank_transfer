@@ -8,7 +8,7 @@ import WelcomePage from './components/WelcomePage';
 import { AuthProvider } from './context/AuthProvider';
 
 function App() {
-  ('Rendering Apps...');
+
   return (
   
       <BrowserRouter>

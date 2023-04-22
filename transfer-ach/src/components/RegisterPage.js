@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import Button from './Button';
 import InputForm from './InputForm';
 import Header from './Header';
 import axios from 'axios';
 import { isValidEmail, isPasswordLongEnough, hasPasswordRequiredChars } from '../utils/inputValidation';
-
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthProvider';
 function RegisterPage() {
+    const navigate = useNavigate();
+    const { handleLogout } = useContext(AuthContext);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -28,9 +31,9 @@ function RegisterPage() {
             hasPasswordRequiredChars(formData.password) &&
             isValidEmail(formData.email)){
             try {
-                const response = await axios.post('http://localhost:3001/api/register', formData);
-                console.log(response);
-                alert('User registered successfully');
+                await axios.post('http://localhost:3001/api/register', formData);
+                alert('User registered successfully. Please Log In');
+                navigate("/login")
             } catch (error) {
                 console.error(error);
                 alert(`Error registering user: ${error.message}`);
@@ -43,7 +46,7 @@ function RegisterPage() {
 
     return (
         <div style={styles.loginPageContainer}>
-            <Header/>
+            <Header buttonTitle='cancel' buttonShow={true} onClick={handleLogout}/>
             <div style={styles.formContainer}>
                 <form onSubmit={handleRegister} style={styles.loginPaneContainer}>
                     <h1 style={styles.loginHeader}>Register</h1>

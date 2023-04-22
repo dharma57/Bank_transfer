@@ -2,7 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
 
 function TransactionTableRow(props) {
-    
+  const sign = props.direction === 0 ? '- ' : '+ ';
+  let circleStyle = {}
+
     const letterColorMap = {
         A: '#FF5733',
         B: '#FFC300',
@@ -32,10 +34,17 @@ function TransactionTableRow(props) {
         Z: '#32CD32',
     };
       
-    const circleColor = letterColorMap[props.user.charAt(0).toUpperCase()]
-
-    const circleStyle = {
+    try {
+      const circleColor = letterColorMap[props.user.charAt(0).toUpperCase()]
+      
+      circleStyle = {
         backgroundColor: circleColor
+      }
+
+    } catch (error) {
+      circleStyle = {
+        backgroundColor: '#32CD32'
+      }
     }
 
     return (
@@ -57,7 +66,7 @@ function TransactionTableRow(props) {
             </div>
             <div style={styles.amountContainer}>
                 <p style={styles.amount}>
-                    {`+$${props.amount}`}
+                    {`${sign}$${props.amount}`}
                 </p>
             </div>
         </td>
@@ -81,6 +90,7 @@ const styles = {
   },
   circle : {
     width:'47px', 
+    height: '47px',
     borderRadius: '50%', 
     display:'flex',
     alignItems : 'center',

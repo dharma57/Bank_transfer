@@ -1,54 +1,22 @@
-import { useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import TransactionTableRow from "./TransactionTableRow";
+import axios from "axios";
+import { AuthContext } from "../context/AuthProvider";
 
 function TransactionList() {
     // Should Fetch Transaction data
     // Temp Data 
-    const transactions = [
-        {
-            otherUser: 'ZachArm',
-            amount: 200,
-            direction: 0,
-            transferDate : '01/11/1994'
-        },
-        {
-            otherUser: 'natasha',
-            amount: 765.06,
-            direction: 1,
-            transferDate : '01/11/1994'
-        },
-        {
-            otherUser: 'jean',
-            amount: 765.06,
-            direction: 1,
-            transferDate : '01/11/1994'
-        },
-        {
-            otherUser: 'stella',
-            amount: 765.06,
-            direction: 1,
-            transferDate : '01/11/1994'
-        },
-        {
-            otherUser: 'mary',
-            amount: 765.06,
-            direction: 1,
-            transferDate : '01/11/1994'
-        },
-        {
-            otherUser: 'william',
-            amount: 765.06,
-            direction: 1,
-            transferDate : '01/11/1994'
-        }
-    ];
+    const { token } = useContext(AuthContext);
+    const [transactions, setTransactions] = useState([]);
 
     useEffect(() => {
         const fetchData = async () => {
           try {
             //call transactions;
            // update transactions
-            console.log("trying to fetch transaction")
+            const response_db = await axios.post('http://localhost:3001/api/transactions', {token: token});
+            setTransactions(response_db.data.transactions)
+            console.log(transactions)
           } catch (error) {
             console.error('Error fetching data:', error);
           }
@@ -73,17 +41,28 @@ function TransactionList() {
                 Transactions
             </h2>
             <div style={styles.tableContainer}>
-                <table >
+            <table>
                     <tbody>
-                        {transactions.map((transaction, index) => (
-                        <tr key={index}>
-                            <TransactionTableRow 
-                                user={transaction.otherUser} 
-                                amount={transaction.amount} 
-                                date={transaction.transferDate}
-                            />
+                        {transactions.length === 0 ? (
+                        <tr>
+                            <td colSpan="4"></td>
                         </tr>
-                        ))}
+                        ) : (
+                        transactions.map((transaction, index) => (
+                            <tr key={index}>
+                            <TransactionTableRow
+                                user={
+                                    transaction.direction === 0
+                                    ? transaction.destination_first_name
+                                    : transaction.origin_first_name
+                                }
+                                amount={transaction.amount}
+                                date={transaction.transferDate}
+                                direction={transaction.direction}
+                            />
+                            </tr>
+                        ))
+                        )}
                     </tbody>
                 </table>
             </div>

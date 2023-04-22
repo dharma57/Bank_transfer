@@ -15,7 +15,7 @@ export const isPasswordLongEnough = (password) => {
 export const hasPasswordRequiredChars = (password) => {
     // Regular expression to check for at least one uppercase letter, one special character, and one digit
     const uppercaseRegex = /[A-Z]/;
-    const specialCharRegex = /[\W_]/;
+    const specialCharRegex = /[!@#$%^&*?]/;
     const digitRegex = /[0-9]/;
 
     return uppercaseRegex.test(password) && specialCharRegex.test(password) && digitRegex.test(password);

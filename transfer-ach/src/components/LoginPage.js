@@ -9,19 +9,28 @@ import { AuthContext } from '../context/AuthProvider';
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { handleEmailChange, email } = useContext(AuthContext);
+  const { handleEmailChange, email,handleLogout } = useContext(AuthContext);
   const [password, setPassword] = useState('');
 
   const handleLogin = async (e) =>  {
     e.preventDefault();
 
+    if (isPasswordLongEnough(password) && 
+        hasPasswordRequiredChars(password) &&
+        isValidEmail(email)){
         try {
             const response_db = await axios.post('http://localhost:3001/api/login', { email: email, password:password});
             axios.post('http://localhost:3001/api/mfa/sendOTP', { email: email});
             navigate('/mfa');
           } catch (error) {
+            console.log(error) // has information. Based on the error and response code I can do certain things
             alert("Problem occurred while logging in")
         }
+      }
+      else 
+      {
+        alert("Invalid password and or email address")
+      }
   };
 
   const handlePasswordChange = (e) => {
@@ -30,7 +39,7 @@ function LoginPage() {
 
   return (
     <div style={styles.loginPageContainer}>
-      <Header/>
+      <Header buttonTitle='cancel' buttonShow={true} onClick={handleLogout}/>
       <div style={styles.formContainer}>
       <form 
         onSubmit={handleLogin} 
